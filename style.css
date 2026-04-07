@@ -1,0 +1,360 @@
+:root {
+    --primary-color: #00ff88;
+    --bg-dark: #0a0a0c;
+    --glass-bg: rgba(255, 255, 255, 0.05);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --text-white: #ffffff;
+    --accent-red: #ff3e3e;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Outfit', sans-serif;
+}
+
+body {
+    background: var(--bg-dark);
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    color: var(--text-white);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#game-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, #1a1a2e 0%, #0a0a0c 100%);
+    overflow: hidden;
+}
+
+.overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: url('https://w0.peakpx.com/wallpaper/547/1024/HD-wallpaper-gta-v-city-night-gta-5-city-night-thumbnail.jpg') center/cover;
+    opacity: 0.3;
+    pointer-events: none;
+    filter: blur(5px);
+}
+
+/* HUD Styling */
+#game-hud {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 600px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    padding: 15px 30px;
+    border-radius: 50px;
+    z-index: 10;
+}
+
+.hud-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.label {
+    font-size: 0.7rem;
+    color: rgba(255,255,255,0.5);
+    letter-spacing: 2px;
+    font-weight: 600;
+}
+
+.value {
+    font-size: 1.5rem;
+    font-weight: 800;
+}
+
+#timer-bar-container {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    margin: 0 30px;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+#timer-bar {
+    width: 100%;
+    height: 100%;
+    background: var(--primary-color);
+    box-shadow: 0 0 15px var(--primary-color);
+    transition: width 0.1s linear;
+}
+
+/* Play Area & Path */
+#game-path {
+    pointer-events: none;
+    z-index: 1;
+}
+
+#connection-line {
+    stroke-linecap: round;
+    transition: all 0.3s ease;
+}
+
+#play-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    pointer-events: none;
+}
+
+#game-zone {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 50%;
+    height: 70%;
+    z-index: 1;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+    pointer-events: none;
+}
+
+/* Countdown Overlay */
+#countdown-overlay {
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 100;
+    pointer-events: none;
+    display: none; /* Hide by default */
+    justify-content: center;
+    align-items: center;
+}
+
+#countdown-overlay.visible {
+    display: flex;
+}
+
+#countdown-text {
+    font-size: 15rem;
+    font-weight: 800;
+    color: var(--primary-color);
+    text-shadow: 0 0 50px var(--primary-color);
+    animation: pulse 0.8s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* Game Circle */
+.circle {
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 2.5rem;
+    font-weight: 800;
+    cursor: pointer;
+    user-select: none;
+    background: var(--glass-bg);
+    backdrop-filter: blur(5px);
+    border: 3px solid var(--primary-color);
+    box-shadow: 0 0 20px rgba(0,255,136,0.5);
+    transform: scale(0);
+    animation: spawnCircle 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    pointer-events: auto; /* Required as parent has pointer-events: none */
+    z-index: 10;
+}
+
+.circle::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    border: 2px solid var(--primary-color);
+    border-radius: 50%;
+    opacity: 0.6;
+    transform: scale(2.5); /* Start large */
+    pointer-events: none;
+}
+
+/* The shrinking ring animation */
+.circle.active::before {
+    animation: approach-anim var(--approach-time) linear forwards;
+}
+
+@keyframes approach-anim {
+    0% { transform: scale(2.5); opacity: 0.1; }
+    10% { opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; border-width: 4px; }
+}
+
+@keyframes spawnCircle {
+    to { transform: scale(1); }
+}
+
+@keyframes shrinkRing {
+    from { transform: scale(1.5); opacity: 1; }
+    to { transform: scale(0.9); opacity: 0; }
+}
+
+/* Screens */
+.screen {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    display: none;
+    z-index: 20;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+}
+
+.screen.visible {
+    display: flex;
+}
+
+.glitch {
+    font-size: 5rem;
+    font-weight: 900;
+    position: relative;
+    color: var(--text-white);
+    letter-spacing: 10px;
+}
+
+.subtitle {
+    margin-top: -10px;
+    color: var(--primary-color);
+    letter-spacing: 5px;
+    font-weight: 300;
+}
+
+.menu-buttons {
+    margin-top: 50px;
+    display: flex;
+    gap: 20px;
+}
+
+.btn {
+    padding: 15px 40px;
+    border: none;
+    border-radius: 10px;
+    font-weight: 800;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.btn.primary {
+    background: var(--primary-color);
+    color: #000;
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+}
+
+.btn.primary:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 30px rgba(0, 255, 136, 0.6);
+}
+
+.btn.secondary {
+    background: transparent;
+    border: 2px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+/* Modal */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal.visible {
+    display: flex;
+}
+
+.modal-content {
+    width: 90%;
+    max-width: 500px;
+    padding: 40px;
+    border-radius: 20px;
+    border: 1px solid var(--glass-border);
+}
+
+.glass {
+    background: rgba(20, 20, 25, 0.8);
+    backdrop-filter: blur(20px);
+}
+
+.setting-group {
+    margin: 25px 0;
+}
+
+.setting-group label {
+    display: block;
+    margin-bottom: 15px;
+    color: rgba(255,255,255,0.6);
+}
+
+input[type="range"] {
+    width: 100%;
+}
+
+select {
+    width: 100%;
+    padding: 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--glass-border);
+    color: #fff;
+    border-radius: 5px;
+}
+
+.close-btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 2rem;
+    cursor: pointer;
+}
+
+/* Shake Animation */
+@keyframes shake {
+    0% { transform: translate(1px, 1px) rotate(0deg); }
+    10% { transform: translate(-1px, -2px) rotate(-1deg); }
+    20% { transform: translate(-3px, 0px) rotate(1deg); }
+    30% { transform: translate(3px, 2px) rotate(0deg); }
+    40% { transform: translate(1px, -1px) rotate(1deg); }
+    50% { transform: translate(-1px, 2px) rotate(-1deg); }
+    60% { transform: translate(-3px, 1px) rotate(0deg); }
+    70% { transform: translate(3px, 1px) rotate(-1deg); }
+    80% { transform: translate(-1px, -1px) rotate(1deg); }
+    90% { transform: translate(1px, 2px) rotate(0deg); }
+    100% { transform: translate(1px, -2px) rotate(-1deg); }
+}
+
+.shake {
+    animation: shake 0.4s;
+}

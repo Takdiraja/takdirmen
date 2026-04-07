@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BackToBack Game</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="game-container">
+        <!-- Overlay for blurring background -->
+        <div class="overlay"></div>
+        
+        <!-- Game Info (Level, Timer) -->
+        <div id="game-hud">
+            <div class="hud-item">
+                <span class="label">STAGE</span>
+                <span id="level-display" class="value">01</span>
+            </div>
+            <div id="timer-bar-container">
+                <div id="timer-bar"></div>
+            </div>
+            <div class="hud-item">
+                <span class="label">LIVES</span>
+                <span id="lives-display" class="value">3</span>
+            </div>
+        </div>
+
+        <!-- SVG Layer for Paths -->
+        <svg id="game-path" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0;">
+            <line id="connection-line" x1="0" y1="0" x2="0" y2="0" stroke="rgba(0, 255, 136, 0.4)" stroke-width="4" stroke-dasharray="10,5" style="display:none;" />
+        </svg>
+
+        <div id="play-area"></div>
+        <div id="game-zone"></div>
+
+        <!-- Landing / Start Screen -->
+        <div id="start-screen" class="screen visible">
+            <h1 class="glitch" data-text="BACKTOBACK">BACKTOBACK</h1>
+            <p class="subtitle">GAME EDITION</p>
+            <div class="menu-buttons">
+                <button id="start-btn" class="btn primary">START GAME</button>
+                <button id="settings-btn" class="btn secondary">SETTINGS</button>
+            </div>
+        </div>
+
+        <!-- Result Screen -->
+        <div id="result-screen" class="screen">
+            <h2 id="result-title">SUCCESS</h2>
+            <div class="stats">
+                <div class="stat">
+                    <span>TIME</span>
+                    <span id="result-time">0.0s</span>
+                </div>
+                <div class="stat">
+                    <span>ACCURACY</span>
+                    <span id="result-accuracy">100%</span>
+                </div>
+            </div>
+            <div class="menu-buttons">
+                <button id="retry-btn" class="btn primary">PLAY AGAIN</button>
+                <button id="home-btn" class="btn secondary">MAIN MENU</button>
+            </div>
+        </div>
+
+        <!-- Countdown Overlay -->
+        <div id="countdown-overlay" class="screen">
+            <h1 id="countdown-text" class="glitch">3</h1>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="modal">
+            <div class="modal-content glass">
+                <div class="modal-header">
+                    <h3>GAME SETTINGS</h3>
+                    <button id="close-settings" class="close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="setting-group">
+                        <label>Difficulty</label>
+                        <select id="config-difficulty">
+                            <option value="easy" selected>Easy (3 Circles)</option>
+                            <option value="medium">Medium (30 Circles)</option>
+                            <option value="hard">Hard (80 Circles)</option>
+                            <option value="insane">Insane (150 Circles)</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label>Durasi Game (Total Waktu)</label>
+                        <select id="config-time-limit">
+                            <option value="30000">30 Detik</option>
+                            <option value="60000" selected>60 Detik</option>
+                            <option value="180000">180 Detik</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label>Theme Color</label>
+                        <input type="color" id="config-color" value="#00ff88">
+                    </div>
+                    <div class="setting-group">
+                        <label>Waktu per Angka (detik)</label>
+                        <input type="number" id="config-time-per-circle" min="0.5" max="10" step="0.5" value="2.5">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="save-settings" class="btn primary">SAVE CHANGES</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="script.js"></script>
+</body>
+</html>
