@@ -3,16 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google" content="notranslate">
     <title>BackToBack Game</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <div id="game-container">
+        <div id="timer-numeric">00.0s</div>
         <!-- Overlay for blurring background -->
         <div class="overlay"></div>
         
-        <!-- Game Info (Level, Timer) -->
+        <!-- HUD & Timer -->
         <div id="game-hud">
             <div class="hud-item">
                 <span class="label">STAGE</span>
@@ -33,14 +35,51 @@
         </svg>
 
         <div id="play-area"></div>
-        <div id="game-zone"></div>
+        <div id="game-interaction-layer"></div>
+
+        <!-- Signal Scrambler (Scrolling Wave) -->
+        <div id="square-path-container" style="display:none; overflow:hidden; position:absolute; top:0; left:0; width:100%; height:100%;">
+            <div id="scrambler-status" style="position:absolute; top:20%; left:50%; transform:translateX(-50%); font-size:2rem; font-weight:800; letter-spacing:10px; color:#fff; z-index:10; opacity:0; transition:opacity 0.3s; pointer-events:none;">CALIBRATING...</div>
+            <svg id="scrambler-svg" style="width:100%; height:100%;">
+                <path id="scrambler-target-path" d="" fill="none" stroke="rgba(0,0,0,0.6)" stroke-width="140" stroke-linejoin="round" stroke-linecap="round" />
+            </svg>
+            <div id="scrambler-cursor" class="rp-cursor"></div>
+        </div>
+
+        <!-- Precision Lock Minigame -->
+        <div id="lock-game-container" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:50;">
+            <div id="lock-status" style="position:absolute; top:35%; left:50%; transform:translateX(-50%); font-size:2rem; font-weight:800; letter-spacing:8px; color:#fff; opacity:0; transition:opacity 0.3s;">GET READY</div>
+            
+            <div class="lock-wrapper">
+                <div class="lock-bar-container" id="lock-bar-container">
+                    <div id="lock-indicator"></div>
+                    <div id="lock-slots-wrapper"></div>
+                </div>
+                <div id="lock-instructions" class="lock-instructions">CLICK E TO OPEN LOCK</div>
+            </div>
+        </div>
 
         <!-- Landing / Start Screen -->
         <div id="start-screen" class="screen visible">
-            <h1 class="glitch" data-text="BACKTOBACK">BACKTOBACK</h1>
-            <p class="subtitle">GAME EDITION</p>
-            <div class="menu-buttons">
-                <button id="start-btn" class="btn primary">START GAME</button>
+            <h1 class="glitch" data-text="EXE MINIGAME">EXE MINIGAME</h1>
+            <p class="subtitle">SELECT YOUR CHALLENGE</p>
+            
+            <div class="hub-container">
+                <div class="game-card" id="select-osu">
+                    <span class="card-icon">🎯</span>
+                    <span class="card-title">FLECCA MINIGAME</span>
+                </div>
+                <div class="game-card" id="select-path">
+                    <span class="card-icon">⚡</span>
+                    <span class="card-title">FLECCA MINIGAME2</span>
+                </div>
+                <div class="game-card" id="select-lock">
+                    <span class="card-icon">🔐</span>
+                    <span class="card-title">ROB HOUSE MINIGAME</span>
+                </div>
+            </div>
+
+            <div class="menu-buttons" style="margin-top: 40px;">
                 <button id="settings-btn" class="btn secondary">SETTINGS</button>
             </div>
         </div>
@@ -50,7 +89,7 @@
             <h2 id="result-title">SUCCESS</h2>
             <div class="stats">
                 <div class="stat">
-                    <span>TIME</span>
+                    <span id="result-label-time">TIME</span>
                     <span id="result-time">0.0s</span>
                 </div>
                 <div class="stat">
@@ -108,6 +147,97 @@
                 </div>
             </div>
         </div>
+
+        <!-- Preparation / Mission Briefing Modal -->
+        <div id="preparation-modal" class="modal">
+            <div class="modal-content glass">
+                <div class="modal-header">
+                    <h2 id="prep-game-title" style="letter-spacing: 2px;">MISSION BRIEFING</h2>
+                    <p id="prep-game-desc" style="color: rgba(255,255,255,0.6); margin-top: 10px; font-size: 0.9rem;">Prepare your focus. Any mistake will terminate the mission.</p>
+                </div>
+                <div class="modal-body" style="padding: 20px 0;">
+                    <div id="prep-settings-osu" class="prep-section" style="display:none;">
+                        <div class="setting-group">
+                            <label>Mission Density (Target Count)</label>
+                            <select id="osu-circle-count">
+                                <option value="10">Training (10)</option>
+                                <option value="30" selected>Standard (30)</option>
+                                <option value="80">Tactical (80)</option>
+                                <option value="150">Insane (150)</option>
+                            </select>
+                        </div>
+                        <div class="setting-group">
+                            <label>Mission Duration (Timer)</label>
+                            <select id="osu-time-limit">
+                                <option value="30000">30 Seconds</option>
+                                <option value="60000" selected>60 Seconds</option>
+                            </select>
+                        </div>
+                        <div class="setting-group">
+                            <label>Response Window (Speed)</label>
+                            <input type="range" id="osu-speed" min="0.5" max="5" step="0.1" value="2.5">
+                            <div style="display:flex; justify-content:space-between; font-size:10px; color:rgba(255,255,255,0.3)">
+                                <span>SLOW</span><span>FAST</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="prep-settings-path" class="prep-section" style="display:none;">
+                        <div class="setting-group">
+                            <label>Tunnel Structural Integrity (Width)</label>
+                            <select id="path-width">
+                                <option value="120">Stable (Wide)</option>
+                                <option value="80" selected>Standard</option>
+                                <option value="50">Unstable (Narrow)</option>
+                            </select>
+                        </div>
+                        <div class="setting-group">
+                            <label>Encryption Flux (Speed)</label>
+                            <input type="range" id="path-speed" min="0.001" max="0.008" step="0.0005" value="0.0025">
+                            <div style="display:flex; justify-content:space-between; font-size:10px; color:rgba(255,255,255,0.3)">
+                                <span>SLOW</span><span>EXPRESS</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="prep-settings-lock" class="prep-section" style="display:none;">
+                        <div class="setting-group">
+                            <label>Lock Complexity (Targets)</label>
+                            <input type="number" id="lock-slots" min="3" max="15" value="10" class="glass">
+                        </div>
+                        <div class="setting-group">
+                            <label>Mechanism Stability (Speed)</label>
+                            <input type="range" id="lock-speed" min="1.5" max="6" step="0.1" value="2.5">
+                            <div style="display:flex; justify-content:space-between; font-size:10px; color:rgba(255,255,255,0.3)">
+                                <span>RELIABLE</span><span>UNSTEADY</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="prep-details" class="setting-hint" style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-top: 10px;">
+                        <p id="prep-hint-text" style="font-size: 0.8rem; line-height: 1.4; color: rgba(255,255,255,0.7);">
+                            PRO TIP: Precision is key. One miss and it's over.
+                        </p>
+                    </div>
+                </div>
+                <div class="modal-footer" style="display: flex; flex-direction: column; gap: 12px;">
+                    <button id="start-mission-btn" class="btn primary">START MISSION</button>
+                    <button id="back-to-hub-btn" class="btn secondary">ABORT</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Credits & Donation Footer -->
+    <div class="footer-credits">
+        <div class="credit-info">
+            <span class="version">VERSION 3.10</span>
+            <span class="author">DEVELOPED BY <span class="highlight">TAKDIR</span></span>
+        </div>
+        <a href="https://saweria.co/takdiraja" target="_blank" class="donation-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.72-8.72 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+            SUPPORT PROJECT
+        </a>
     </div>
 
     <!-- Scripts -->
