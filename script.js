@@ -335,11 +335,11 @@ class BackToBackGame {
         circle.id = `osu-${num}`;
         circle.textContent = num;
         
-        // PRECISE RIGHT-MIDDLE AREA (V3.10)
-        // Mid-height (40%-60%) on the far right (75%-95%)
+        // PRECISE RIGHT-MIDDLE AREA (V3.10) - EXPANDED FOR BETTER SPACING
+        // Expanded to allow "renggang" placement while staying on the right side
         const w = window.innerWidth, h = window.innerHeight;
-        const minX = w * 0.75, maxX = w * 0.95;
-        const minY = h * 0.40, maxY = h * 0.60;
+        const minX = w * 0.72, maxX = w * 0.95;
+        const minY = h * 0.30, maxY = h * 0.70;
         
         let x, y;
         if (!this.state.lastPos) {
@@ -347,12 +347,12 @@ class BackToBackGame {
             x = (minX + maxX) / 2;
             y = (minY + maxY) / 2;
         } else {
-            // "Tidak terlalu dempet tapi jangan terlalu berjarak juga"
-            const minDist = 80;
-            const maxDist = 180;
+            // Increased spacing for a less cramped feel (was 80/180)
+            const minDist = 120;
+            const maxDist = 220;
             
-            // Try up to 10 times to find a valid position within bounds
-            for (let tries = 0; tries < 10; tries++) {
+            // Try up to 20 times to find a valid position within bounds
+            for (let tries = 0; tries < 20; tries++) {
                 const angle = Math.random() * Math.PI * 2;
                 const dist = minDist + Math.random() * (maxDist - minDist);
                 x = this.state.lastPos.x + Math.cos(angle) * dist;
@@ -364,7 +364,7 @@ class BackToBackGame {
                 }
             }
             
-            // Absolute clamp fallback if all 10 tries failed
+            // Absolute clamp fallback if all tries failed
             x = Math.max(minX, Math.min(maxX, x));
             y = Math.max(minY, Math.min(maxY, y));
         }
