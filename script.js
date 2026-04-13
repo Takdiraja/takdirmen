@@ -37,25 +37,27 @@ class GameHub {
 
     playSound(freq, type = 'sine', dur = 0.1, sweep = false) {
         if (!this.audioCtx || this.audioCtx.state === 'suspended') return;
+        const now = this.audioCtx.currentTime;
         const osc = this.audioCtx.createOscillator();
         const gain = this.audioCtx.createGain();
         osc.type = type;
         
         if (sweep) {
-            // Frequency sweep for "ndut/thump" sound - starts high, drops fast
-            osc.frequency.setValueAtTime(freq * 1.5, this.audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(freq * 0.1, this.audioCtx.currentTime + dur);
+            // "Tak-Petik" effect: Fast high-to-low sweep
+            osc.frequency.setValueAtTime(freq * 1.8, now);
+            osc.frequency.exponentialRampToValueAtTime(freq * 0.8, now + dur);
         } else {
-            osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
+            osc.frequency.setValueAtTime(freq, now);
         }
         
-        gain.gain.setValueAtTime(0.15, this.audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + dur);
+        // Sharp attack for "Tak"
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
         
         osc.connect(gain);
         gain.connect(this.audioCtx.destination);
-        osc.start();
-        osc.stop(this.audioCtx.currentTime + dur);
+        osc.start(now);
+        osc.stop(now + dur);
     }
 
     bindElements() {
@@ -339,7 +341,7 @@ class BackToBackGame {
         // Expanded to allow "renggang" placement while staying on the right side
         const w = window.innerWidth, h = window.innerHeight;
         const minX = w * 0.72, maxX = w * 0.95;
-        const minY = h * 0.30, maxY = h * 0.70;
+        const minY = h * 0.40, maxY = h * 0.80;
         
         let x, y;
         if (!this.state.lastPos) {
@@ -405,7 +407,7 @@ class BackToBackGame {
         if (!this.state.active || num !== this.state.current) { this.handleFail("MISSED TARGET"); return; }
         
         // Thumpy "ndut" hit sound using freq sweep
-        this.hub.playSound(600, 'sine', 0.15, true); 
+        this.hub.playSound(1200, 'triangle', 0.06, true); 
         
         // Show Perfect! text at hit position
         if (e) this.showPerfect(e.clientX, e.clientY);
@@ -848,7 +850,7 @@ class PrecisionLockGame {
             nextSlot.el.classList.add('completed');
             nextSlot.el.classList.remove('active');
             this.completedCount++;
-            this.hub.playSound(800, 'sine', 0.2);
+            this.hub.playSound(1200, 'triangle', 0.06, true);
             
             // Hitstop: Reduced to 200ms based on download.mp4 for snappier feel
             this.isPaused = true;
