@@ -1,912 +1,663 @@
-/**
- * BACKTOBACK GAME HUB
- * VERSION 3.10 - DEFINITIVE STABLE VERSION
- * Changes: Removed approach circles, Fixed Right-Middle position, Max Persistence.
- */
+const tabs = document.querySelectorAll(".tab-btn");
+const panels = document.querySelectorAll(".game-panel");
 
-class GameHub {
-    constructor() {
-        this.activeGame = null;
-        this.activeGameName = '';
-        this.config = {
-            themeColor: '#00ff88',
-            osu: { count: 30, speed: 2.5, timeLimit: 60000 },
-            path: { width: 140, speed: 0.003 },
-            lock: { slots: 10, speed: 2.5 }
-        };
+tabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    tabs.forEach((btn) => btn.classList.remove("active"));
+    panels.forEach((panel) => panel.classList.remove("active"));
 
-        // Initialize state from LocalStorage for persistence across sessions
-        this.persistence = {
-            osu: localStorage.getItem('btb_configured_osu') === 'true',
-            path: localStorage.getItem('btb_configured_path') === 'true'
-        };
+    tab.classList.add("active");
+    document.getElementById(tab.dataset.game).classList.add("active");
+  });
+});
 
-        this.bindElements();
-        this.addEventListeners();
-        this.initAudio();
-        
-        this.cursorX = window.innerWidth / 2;
-        this.cursorY = window.innerHeight / 2;
-    }
+// =====================
+// MINESWEEPER
+// =====================
+const mineConfig = {
+  x: 9,
+  y: 9,
+  mineCount: 10
+};
 
-    initAudio() {
-        try {
-            this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        } catch(e) { console.warn("Audio Context blocked."); }
-    }
+const mineBoardEl = document.getElementById("mineBoard");
+const mineStatusEl = document.getElementById("mineStatus");
 
-    playSound(freq, type = 'sine', dur = 0.1, sweep = false) {
-        if (!this.audioCtx || this.audioCtx.state === 'suspended') return;
-        const now = this.audioCtx.currentTime;
-        const osc = this.audioCtx.createOscillator();
-        const gain = this.audioCtx.createGain();
-        osc.type = type;
-        
-        if (sweep) {
-            // "Tak-Petik" effect: Fast high-to-low sweep
-            osc.frequency.setValueAtTime(freq * 1.8, now);
-            osc.frequency.exponentialRampToValueAtTime(freq * 0.8, now + dur);
-        } else {
-            osc.frequency.setValueAtTime(freq, now);
-        }
-        
-        // Sharp attack for "Tak"
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
-        
-        osc.connect(gain);
-        gain.connect(this.audioCtx.destination);
-        osc.start(now);
-        osc.stop(now + dur);
-    }
+let mineBoard = [];
+let mineHistory = [];
+let mineGameOver = false;
 
-    bindElements() {
-        this.hud = document.getElementById('game-hud');
-        this.timerNumeric = document.getElementById('timer-numeric');
-        this.startScreen = document.getElementById('start-screen');
-        this.resultScreen = document.getElementById('result-screen');
-        this.prepModal = document.getElementById('preparation-modal');
-        this.countdownOverlay = document.getElementById('countdown-overlay');
-        this.countdownText = document.getElementById('countdown-text');
-        this.interactionLayer = document.getElementById('game-interaction-layer');
-        this.container = document.getElementById('game-container');
-        
-        this.prepOsu = document.getElementById('prep-settings-osu');
-        this.prepPath = document.getElementById('prep-settings-path');
-        this.prepLock = document.getElementById('prep-settings-lock');
-        
-        this.inOsuCount = document.getElementById('osu-circle-count');
-        this.inOsuSpeed = document.getElementById('osu-speed');
-        this.inOsuTime = document.getElementById('osu-time-limit');
-        this.inPathWidth = document.getElementById('path-width');
-        this.inPathSpeed = document.getElementById('path-speed');
-        this.inLockSlots = document.getElementById('lock-slots');
-        this.inLockSpeed = document.getElementById('lock-speed');
-    }
-
-    addEventListeners() {
-        // SELECTORS: Always show modal
-        document.getElementById('select-osu').onclick = (e) => { 
-            e.stopPropagation(); 
-            this.activeGameName = 'osu';
-            this.prepareGame('osu');
-        };
-        document.getElementById('select-path').onclick = (e) => { 
-            e.stopPropagation(); 
-            this.activeGameName = 'path';
-            this.prepareGame('path'); 
-        };
-        document.getElementById('select-lock').onclick = (e) => { 
-            e.stopPropagation(); 
-            this.activeGameName = 'lock';
-            this.prepareGame('lock'); 
-        };
-        
-        document.getElementById('back-to-hub-btn').onclick = () => this.showHub();
-        document.getElementById('start-mission-btn').onclick = () => {
-            this.launchGame();
-        };
-
-        document.getElementById('retry-btn').onclick = () => this.launchGame();
-        document.getElementById('home-btn').onclick = () => this.showHub();
-
-        window.onmousemove = (e) => { this.cursorX = e.clientX; this.cursorY = e.clientY; };
-        window.ontouchmove = (e) => { 
-            if(e.touches.length > 0) {
-                this.cursorX = e.touches[0].clientX; 
-                this.cursorY = e.touches[0].clientY; 
-            }
-        };
-    }
-
-    prepareGame(name) {
-        if(this.audioCtx && this.audioCtx.state === 'suspended') this.audioCtx.resume();
-        this.activeGameName = name;
-        this.hideAllScreens();
-        this.prepOsu.style.display = name === 'osu' ? 'block' : 'none';
-        this.prepPath.style.display = name === 'path' ? 'block' : 'none';
-        this.prepLock.style.display = name === 'lock' ? 'block' : 'none';
-        
-        const hintText = document.getElementById('prep-hint-text');
-        if (name === 'osu') {
-            document.getElementById('prep-game-title').textContent = "MISSION: BACK TO BACK";
-            hintText.textContent = "PRO TIP: Precision is key. One miss and it's over.";
-        } else if (name === 'path') {
-            document.getElementById('prep-game-title').textContent = "MISSION: SIGNAL SCRAMBLER";
-            hintText.textContent = "TUTORIAL: Jaga posisi kursor (box angka) agar tetap di dalam pita hitam pekat. Kursor terkunci secara horizontal, gerakkan mouse ke ATAS/BAWAH untuk mengikuti gelombang.";
-        } else {
-            document.getElementById('prep-game-title').textContent = "MISSION: PRECISION LOCK";
-            hintText.textContent = "TUTORIAL: Tekan SPACE atau KLIK saat indikator biru berada tepat di atas kotak hitam untuk membuka kunci.";
-        }
-        
-        this.prepModal.classList.add('visible');
-    }
-
-    saveCurrentSettings() {
-        if (this.activeGameName === 'osu') {
-            this.config.osu.count = parseInt(this.inOsuCount?.value) || 30;
-            this.config.osu.speed = parseFloat(this.inOsuSpeed?.value) || 2.5;
-            this.config.osu.timeLimit = parseInt(this.inOsuTime?.value) || 60000;
-        } else if (this.activeGameName === 'path') {
-            this.config.path.width = parseInt(this.inPathWidth?.value) || 140;
-            this.config.path.speed = parseFloat(this.inPathSpeed?.value) || 0.003;
-        } else {
-            this.config.lock.slots = parseInt(this.inLockSlots?.value) || 5;
-            this.config.lock.speed = parseFloat(this.inLockSpeed?.value) || 2.5;
-        }
-    }
-
-    launchGame() {
-        if (this.activeGame) this.activeGame.stop(); 
-        this.saveCurrentSettings();
-        this.hideAllScreens();
-        
-        if (this.activeGameName === 'path') {
-            this.activeGame = new SignalScramblerGame(this);
-            this.activeGame.start();
-        } else if (this.activeGameName === 'lock') {
-            this.activeGame = new PrecisionLockGame(this);
-            this.activeGame.start();
-        } else if (this.activeGameName === 'osu') {
-            // Osu has its own high-fidelity cinematic countdown, so skip the hub one
-            this.activeGame = new BackToBackGame(this);
-            this.activeGame.start();
-        } else {
-            this.startCountdown(() => {
-                this.activeGame = new BackToBackGame(this);
-                this.activeGame.start();
-            });
-        }
-    }
-
-    startCountdown(callback) {
-        this.countdownOverlay.classList.add('visible');
-        let count = 3;
-        const tick = () => {
-            if (count > 0) {
-                this.countdownText.textContent = count;
-                this.playSound(800, 'square');
-                count--;
-                setTimeout(tick, 800);
-            } else {
-                this.countdownText.textContent = "GO!";
-                this.playSound(1000, 'sine', 0.3);
-                setTimeout(() => {
-                    this.countdownOverlay.classList.remove('visible');
-                    callback();
-                }, 600);
-            }
-        };
-        tick();
-    }
-
-    showHub() {
-        if (this.activeGame) this.activeGame.stop();
-        this.hideAllScreens();
-        this.hud.style.display = 'none';
-        this.interactionLayer.style.display = 'none';
-        this.timerNumeric.classList.remove('visible');
-        this.startScreen.classList.add('visible');
-    }
-
-    hideAllScreens() {
-        this.startScreen.classList.remove('visible');
-        this.resultScreen.classList.remove('visible');
-        this.countdownOverlay.classList.remove('visible');
-        this.prepModal.classList.remove('visible');
-    }
-
-    showResult(success, time, accuracy = "100%", reason = "TIME LOST SYNC") {
-        if (this.activeGame) this.activeGame.stop();
-        this.hideAllScreens();
-        this.hud.style.display = 'none';
-        this.interactionLayer.style.display = 'none';
-        this.timerNumeric.classList.remove('visible');
-        if (this.hackingCursor) this.hackingCursor.style.display = 'none';
-        
-        const title = document.getElementById('result-title');
-        title.textContent = success ? "MISSION SUCCESS" : "MISSION FAILED";
-        title.style.color = success ? this.config.themeColor : "#ff3e3e";
-        
-        if (success) {
-            const timeEl = document.getElementById('result-time');
-            const labelEl = document.getElementById('result-label-time');
-            if (timeEl) timeEl.textContent = `${time}s`;
-            if (labelEl) labelEl.textContent = 'TIME';
-        } else {
-            const timeEl = document.getElementById('result-time');
-            const labelEl = document.getElementById('result-label-time');
-            if (labelEl) labelEl.textContent = 'FAILED';
-            if (timeEl) timeEl.textContent = reason;
-        }
-        
-        const accEl = document.getElementById('result-accuracy');
-        if (accEl) {
-            accEl.textContent = accuracy;
-            // EXE Style: Always show accuracy, even on failure, to show how close the player was
-            accEl.parentElement.style.opacity = '1';
-        }
-        
-        this.resultScreen.classList.add('visible');
-    }
+function saveMineHistory() {
+  mineHistory.push({
+    board: JSON.parse(JSON.stringify(mineBoard)),
+    gameOver: mineGameOver,
+    status: mineStatusEl.textContent
+  });
 }
 
-class BackToBackGame {
-    constructor(hub) {
-        this.hub = hub;
-        this.playArea = document.getElementById('play-area');
-        this.interactionLayer = document.getElementById('game-interaction-layer');
-        this.line = document.getElementById('connection-line');
-        this.state = { current: 1, spawned: 0, active: false, startTime: 0, timeouts: {}, lastPos: null, score: 0 };
-    }
+function undoMineMove() {
+  if (mineHistory.length === 0) {
+    mineStatusEl.textContent = "Belum ada langkah untuk di-undo.";
+    return;
+  }
 
-    start() {
-        this.showCountdown(() => this.run());
-    }
-
-    showCountdown(callback) {
-        const overlay = document.createElement('div');
-        overlay.className = 'osu-countdown-ui';
-        this.hub.container.appendChild(overlay);
-        
-        let count = 3;
-        const tick = () => {
-            if (count > 0) {
-                overlay.textContent = count;
-                overlay.classList.remove('countdown-pop');
-                void overlay.offsetWidth; // trigger reflow
-                overlay.classList.add('countdown-pop');
-                this.hub.playSound(800, 'square', 0.15); // Countdown tick
-                count--;
-                setTimeout(tick, 1000);
-            } else {
-                overlay.remove();
-                callback();
-            }
-        };
-        tick();
-    }
-
-    run() {
-        this.state.active = true;
-        this.state.score = 0;
-        this.state.startTime = Date.now();
-        
-        // Add score UI dynamically
-        this.scoreUI = document.createElement('div');
-        this.scoreUI.className = 'osu-score-ui';
-        this.scoreUI.innerHTML = `<span class="score-label">SCORE</span><span id="osu-score-value">0</span>`;
-        this.hub.container.appendChild(this.scoreUI);
-        this.scoreValueEl = document.getElementById('osu-score-value');
-
-        this.hub.hud.style.display = 'flex';
-        this.hub.timerNumeric.classList.add('visible');
-        this.interactionLayer.style.display = 'block';
-        
-        this.interactionLayer.onclick = null;
-        setTimeout(() => {
-            if (this.state.active) {
-                this.interactionLayer.onclick = () => this.handleFail("MISSED TARGET");
-            }
-        }, 100);
-
-        this.updateHUD();
-        this.spawn();
-        this.spawn();
-        this.updateTarget();
-        this.startTimer(this.hub.config.osu.timeLimit);
-    }
-
-    stop() {
-        this.state.active = false;
-        clearInterval(this.timer);
-        Object.values(this.state.timeouts).forEach(clearTimeout);
-        this.playArea.innerHTML = '';
-        if (this.scoreUI) this.scoreUI.remove();
-        this.line.style.display = 'none';
-        this.interactionLayer.style.display = 'none';
-        this.interactionLayer.onclick = null;
-    }
-
-    spawn() {
-        if (this.state.spawned >= this.hub.config.osu.count) return;
-        this.state.spawned++;
-        const num = this.state.spawned;
-        const circle = document.createElement('div');
-        circle.className = 'circle';
-        circle.id = `osu-${num}`;
-        circle.textContent = num;
-        
-        // PRECISE RIGHT-MIDDLE AREA (V3.10) - EXPANDED FOR BETTER SPACING
-        // Expanded to allow "renggang" placement while staying on the right side
-        const w = window.innerWidth, h = window.innerHeight;
-        const minX = w * 0.72, maxX = w * 0.95;
-        const minY = h * 0.40, maxY = h * 0.80;
-        
-        let x, y;
-        if (!this.state.lastPos) {
-            // First circle spawns exactly in the center of the zone
-            x = (minX + maxX) / 2;
-            y = (minY + maxY) / 2;
-        } else {
-            // Increased spacing for a less cramped feel (was 80/180)
-            const minDist = 120;
-            const maxDist = 220;
-            
-            // Try up to 20 times to find a valid position within bounds
-            for (let tries = 0; tries < 20; tries++) {
-                const angle = Math.random() * Math.PI * 2;
-                const dist = minDist + Math.random() * (maxDist - minDist);
-                x = this.state.lastPos.x + Math.cos(angle) * dist;
-                y = this.state.lastPos.y + Math.sin(angle) * dist;
-                
-                // If it's within bounds, break early and use this position
-                if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
-                    break;
-                }
-            }
-            
-            // Absolute clamp fallback if all tries failed
-            x = Math.max(minX, Math.min(maxX, x));
-            y = Math.max(minY, Math.min(maxY, y));
-        }
-        
-        this.state.lastPos = { x, y };
-
-        circle.style.left = `${x - 50}px`;
-        circle.style.top = `${y - 50}px`;
-        circle.style.borderColor = this.hub.config.themeColor;
-        circle.style.setProperty('--approach-time', `${this.hub.config.osu.speed}s`);
-        if (num > this.state.current) circle.style.opacity = '0.3';
-        
-        circle.onclick = (e) => {
-            e.stopPropagation();
-            this.handleClick(num, circle, e);
-        };
-        this.playArea.appendChild(circle);
-
-        this.state.timeouts[num] = setTimeout(() => {
-            if (this.state.active && this.state.current === num) this.handleFail("TOO SLOW");
-        }, this.hub.config.osu.speed * 1000);
-    }
-
-    updateTarget() {
-        const cur = document.getElementById(`osu-${this.state.current}`);
-        if (cur) { cur.style.opacity = '1'; cur.classList.add('active'); }
-        const nxt = document.getElementById(`osu-${this.state.current + 1}`);
-        if (cur && nxt) {
-            this.line.setAttribute('x1', parseFloat(cur.style.left) + 50);
-            this.line.setAttribute('y1', parseFloat(cur.style.top) + 50);
-            this.line.setAttribute('x2', parseFloat(nxt.style.left) + 50);
-            this.line.setAttribute('y2', parseFloat(nxt.style.top) + 50);
-            this.line.style.display = 'block';
-        } else this.line.style.display = 'none';
-    }
-
-    handleClick(num, el, e) {
-        if (!this.state.active || num !== this.state.current) { this.handleFail("MISSED TARGET"); return; }
-        
-        // Thumpy "ndut" hit sound using freq sweep
-        this.hub.playSound(1200, 'triangle', 0.06, true); 
-        
-        // Show Perfect! text at hit position
-        if (e) this.showPerfect(e.clientX, e.clientY);
-        this.addScore(750);
-
-        clearTimeout(this.state.timeouts[num]);
-        el.style.transform = 'scale(0)';
-        setTimeout(() => el.remove(), 250);
-        this.state.current++;
-        this.updateHUD();
-        if (this.state.current > this.hub.config.osu.count) {
-            this.hub.showResult(true, ((Date.now() - this.state.startTime)/1000).toFixed(1), "100%", "TARGETS CLEARED");
-        } else { this.updateTarget(); this.spawn(); }
-    }
-
-    showPerfect(x, y) {
-        const text = document.createElement('div');
-        text.className = 'perfect-text';
-        text.textContent = 'Perfect!';
-        text.style.left = `${x}px`;
-        text.style.top = `${y}px`;
-        this.hub.container.appendChild(text);
-        setTimeout(() => text.remove(), 600);
-    }
-
-    addScore(points) {
-        this.state.score += points;
-        if (this.scoreValueEl) {
-            this.scoreValueEl.textContent = this.state.score.toLocaleString();
-            this.scoreValueEl.classList.remove('score-pop');
-            void this.scoreValueEl.offsetWidth; // trigger reflow
-            this.scoreValueEl.classList.add('score-pop');
-        }
-    }
-
-    handleFail(reason = "LOST SYNC") {
-        if (!this.state.active) return;
-        this.hub.playSound(150, 'sawtooth');
-        this.hub.showResult(false, "0.0", "", reason);
-    }
-
-    updateHUD() {
-        document.getElementById('level-display').textContent = String(this.state.current).padStart(2, '0');
-    }
-
-    startTimer(limit) {
-        let start = Date.now();
-        this.timer = setInterval(() => {
-            if (!this.state.active) return;
-            let elapsed = Date.now() - start;
-            let rem = Math.max(0, (limit - elapsed) / 1000);
-            this.hub.timerNumeric.textContent = rem.toFixed(1) + "s";
-            const bar = document.getElementById('timer-bar');
-            if (bar) bar.style.width = `${((limit - elapsed) / limit) * 100}%`;
-            if (rem <= 0) this.handleFail("TIME EXPIRED");
-        }, 100);
-    }
+  const last = mineHistory.pop();
+  mineBoard = last.board;
+  mineGameOver = last.gameOver;
+  mineStatusEl.textContent = last.status;
+  drawMineBoard();
 }
 
-class SignalScramblerGame {
-    constructor(hub) {
-        this.hub = hub;
-        this.container = document.getElementById('square-path-container');
-        this.pathTarget = document.getElementById('scrambler-target-path');
-        this.cursor = document.getElementById('scrambler-cursor');
-        this.statusText = document.getElementById('scrambler-status');
-        
-        this.active = false;
-        this.globalOffset = 0;
-        this.points = [];
-        this.scanX = window.innerWidth / 2; // Start center
-        this.entropy = 0;
-        this.isTransiting = false;
-        this.transitTime = 0;
-        this.accuracyPoints = [];
-        this.integrity = 1.0;
+function restartMinesweeper() {
+  mineBoard = [];
+  mineHistory = [];
+  mineGameOver = false;
+  mineStatusEl.textContent = "Klik kiri untuk buka, klik kanan untuk flag.";
+
+  for (let y = 0; y < mineConfig.y; y++) {
+    mineBoard[y] = [];
+    for (let x = 0; x < mineConfig.x; x++) {
+      mineBoard[y][x] = {
+        mine: false,
+        open: false,
+        flag: false,
+        number: 0
+      };
     }
+  }
 
-    start() {
-        this.container.style.display = 'block';
-        this.hub.hud.style.display = 'flex';
-        this.hub.timerNumeric.classList.remove('visible'); // Hidden initially
-        this.hub.timerNumeric.textContent = "45.0s";
-        
-        // Hide global cursor to prevent overlap
-        if (this.hub.hackingCursor) this.hub.hackingCursor.style.display = 'none';
-        
-        this.active = true;
-        this.entropy = 0;
-        this.globalOffset = 0;
-        this.isTransiting = true; 
-        this.transitTime = 0;
-        this.startTime = Date.now();
-        this.accuracyPoints = [];
-        this.integrity = 1.0; 
-        
-        // SAFE START: Start visual cursor in middle of screen
-        this.hub.cursorY = window.innerHeight / 2;
-        this.scanX = window.innerWidth / 2;
-        
-        this.cursor.classList.remove('danger');
-        this.container.classList.remove('shake', 'shake-severe');
-        
-        // Match high-fidelity countdown style
-        if (this.statusText) {
-            this.statusText.style.opacity = '1';
-            this.statusText.textContent = "3";
-            this.statusText.style.fontSize = "10rem"; // Massive countdown
-            this.statusText.style.top = "50%";
-            this.statusText.style.left = "50%";
-            this.statusText.style.transform = "translate(-50%, -50%)";
-        }
+  let placed = 0;
+  while (placed < mineConfig.mineCount) {
+    const x = Math.floor(Math.random() * mineConfig.x);
+    const y = Math.floor(Math.random() * mineConfig.y);
 
-        this.startTime = Date.now(); // Start countdown timer
-        this.lastFrameTime = this.startTime;
-        this.waveTime = 0; // Deterministic static wave start
-        this.animate();
+    if (!mineBoard[y][x].mine) {
+      mineBoard[y][x].mine = true;
+      placed++;
     }
+  }
 
-    stop() {
-        this.active = false;
-        this.container.style.display = 'none';
-        cancelAnimationFrame(this.anim);
-        this.container.classList.remove('shake-severe');
-        if (this.statusText) this.statusText.style.opacity = '0';
-        
-        // Restore global cursor visibility
-        if (this.hub.hackingCursor) this.hub.hackingCursor.style.display = 'block';
+  for (let y = 0; y < mineConfig.y; y++) {
+    for (let x = 0; x < mineConfig.x; x++) {
+      mineBoard[y][x].number = countMinesAround(x, y);
     }
+  }
 
-
-
-    getYForX(x) {
-        const h = window.innerHeight, cy = h / 2;
-        
-        // JAGGED TRIANGLE WAVE (Flecca 2 Aesthetic)
-        // High frequency sharp bends as seen in game2.mp4
-        const period = 400; 
-        const amplitude1 = 150;
-        const wave1 = Math.abs((x % period) - (period / 2)) * (amplitude1 / (period / 4)) - (amplitude1 / 2);
-        
-        // Secondary jagged mechanical noise
-        const period2 = 180;
-        const wave2 = (Math.abs((x % period2) - (period2 / 2)) < period2 / 4) ? 40 : -40;
-        
-        // Final jagged touch for that "glitchy" feel
-        const wave3 = (x % 80 < 40) ? 20 : -20;
-
-        return cy + wave1 + wave2 + wave3;
-    }
-
-    updateWavePath() {
-        const resolution = 15;
-        const count = Math.ceil(window.innerWidth / resolution) + 5;
-        this.points = [];
-        let d = `M 0 `;
-        for (let i = 0; i < count; i++) {
-            const absoluteX = (i * resolution) + this.globalOffset;
-            const y = this.getYForX(absoluteX);
-            this.points.push(y);
-            if (i === 0) d += `${y}`;
-            else d += ` L ${i * resolution} ${y}`;
-        }
-        this.pathTarget.setAttribute('d', d);
-    }
-
-    animate() {
-        if (!this.active) return;
-        const now = Date.now();
-        const dt = (now - this.lastFrameTime) / 1000;
-        this.lastFrameTime = now;
-        
-        if (!this.isTransiting) {
-            this.waveTime += dt;
-        }
-        
-        if (this.isTransiting) {
-            const elapsedIntro = (now - this.startTime) / 1000;
-            const introDuration = 3.0; // 3 seconds total
-            const remTransit = introDuration - elapsedIntro;
-            
-            if (this.statusText) {
-                const prevText = this.statusText.textContent;
-                if (remTransit > 2.0) this.statusText.textContent = "3";
-                else if (remTransit > 1.0) this.statusText.textContent = "2";
-                else if (remTransit > 0.0) this.statusText.textContent = "1";
-                
-                if (prevText !== this.statusText.textContent) {
-                    this.hub.playSound(800, 'square', 0.15); // Beep on 3-2-1
-                    this.statusText.classList.remove('countdown-pop');
-                    void this.statusText.offsetWidth;
-                    this.statusText.classList.add('countdown-pop');
-                }
-            }
-
-            const scale = Math.max(1, 1 + (remTransit / introDuration) * 3); 
-            const currentWidth = this.hub.config.path.width * scale;
-            this.pathTarget.setAttribute('stroke-width', currentWidth);
-            // Ensure path starts dark immediately to avoid white flash
-            this.pathTarget.setAttribute('stroke', 'rgba(0, 0, 0, 0.6)'); 
-            
-            // Cursor follows mouse X smoothly even while paused
-            const targetX = Math.max(window.innerWidth * 0.15, Math.min(window.innerWidth * 0.85, this.hub.cursorX));
-            this.scanX += (targetX - this.scanX) * 0.15; 
-            this.cursor.style.left = `${this.scanX}px`;
-            this.cursor.style.top = `${this.hub.cursorY}px`;
-            
-            this.updateWavePath(); // Draw statically
-
-            if (remTransit <= 0.0) {
-                this.isTransiting = false;
-                this.startTime = Date.now(); // Reset start time for actual gameplay
-                this.pathTarget.setAttribute('stroke-width', this.hub.config.path.width);
-                this.hub.timerNumeric.classList.add('visible');
-                
-                if (this.statusText) {
-                    this.statusText.textContent = "GO!";
-                    setTimeout(() => { if (this.active && this.statusText) this.statusText.style.opacity = '0'; }, 600);
-                }
-            }
-            
-            this.anim = requestAnimationFrame(() => this.animate());
-            return;
-        }
-
-        const elapsed = (now - this.startTime) / 1000;
-        this.entropy = Math.max(0, elapsed - 1.5);
-        
-        // Flexible Cursor X follows mouse horizontally (with bounds)
-        const targetX = Math.max(window.innerWidth * 0.15, Math.min(window.innerWidth * 0.85, this.hub.cursorX));
-        this.scanX += (targetX - this.scanX) * 0.15; 
-
-        const speedMultiplier = 1 + (this.entropy * 0.04);
-        this.globalOffset += (window.innerWidth * this.hub.config.path.speed * speedMultiplier);
-
-        this.updateWavePath();
-        
-        const limitMs = 45000;
-        const rem = Math.max(0, (limitMs - (now - this.startTime))/1000);
-        this.hub.timerNumeric.textContent = rem.toFixed(1) + "s";
-        
-
-        this.cursor.style.left = `${this.scanX}px`;
-        this.cursor.style.top = `${this.hub.cursorY}px`;
-        
-        const resolution = 15;
-        const indexAtScanner = Math.floor(this.scanX / resolution);
-        const waveY1 = this.points[indexAtScanner];
-        const waveY2 = this.points[indexAtScanner + 1] || waveY1;
-        
-        // Linear Interpolation for true center line distance
-        const t = (this.scanX % resolution) / resolution;
-        const exactWaveY = waveY1 + (waveY2 - waveY1) * t;
-        // PURE VERTICAL DISTANCE: Rock solid for jagged/sharp angles
-        const dist = Math.abs(this.hub.cursorY - exactWaveY);
-        
-        // Dynamic narrowing: The path gets narrower as you progress (min 80px)
-        const currentWidth = Math.max(80, this.hub.config.path.width - (this.entropy * 1.5));
-        
-        // EXTREME ACCURACY FIX: Buffer reduced to 5% only.
-        // Player must stay perfectly within the lines.
-        const maxDist = (currentWidth / 2) * 1.05; 
-        
-        // Update visual width
-        this.pathTarget.setAttribute('stroke-width', currentWidth);
-
-        // Track accuracy
-        const accuracyPercent = Math.max(0, 100 - (dist / maxDist) * 100);
-        this.accuracyPoints.push(accuracyPercent);
-
-        // Lethal Collision Logic
-        if (dist > maxDist) {
-            // Calculate real-time accuracy before stopping
-            const sum = this.accuracyPoints.reduce((a, b) => a + b, 0);
-            const avgAcc = this.accuracyPoints.length > 0 ? (sum / this.accuracyPoints.length).toFixed(0) + "%" : "0%";
-
-            this.hub.playSound(150, 'sawtooth', 0.3);
-            this.container.classList.add('shake-severe');
-            this.active = false;
-            this.hub.showResult(false, "0.0", avgAcc, "CONNECTION LOST");
-            setTimeout(() => {
-                if (this.container) {
-                    this.container.classList.remove('shake-severe');
-                    this.container.style.background = 'rgba(0, 0, 0, 0.4)';
-                }
-            }, 500);
-            return;
-        } else {
-            this.cursor.classList.remove('danger');
-            this.container.classList.remove('shake');
-        }
-        
-        if (rem <= 0) { 
-            const avgAcc = this.accuracyPoints.length ? (this.accuracyPoints.reduce((a,b)=>a+b,0) / this.accuracyPoints.length).toFixed(1) : 100;
-            this.hub.showResult(true, "45.0", `${avgAcc}%`, "DATA SECURED"); 
-            return; 
-        }
-        this.anim = requestAnimationFrame(() => this.animate());
-    }
+  drawMineBoard();
 }
 
-window.onload = () => { window.hub = new GameHub(); };
+function countMinesAround(cx, cy) {
+  let count = 0;
 
-class PrecisionLockGame {
-    constructor(hub) {
-        this.hub = hub;
-        this.container = document.getElementById('lock-game-container');
-        this.indicator = document.getElementById('lock-indicator');
-        this.slotsWrapper = document.getElementById('lock-slots-wrapper');
-        this.statusText = document.getElementById('lock-status');
-        
-        this.active = false;
-        this.pos = 0; // 0 to 100
-        this.slots = [];
-        this.completedCount = 0;
-        this.fails = 0;
-        this.maxFails = 1; // 1 strike and you're out
-        this.speed = 1;
-        this.lastTime = 0;
-        this.isTransiting = true;
-        this.isPaused = false; // "Hitstop" effect
-        this.lastInputTime = 0; // Prevent spam
-        
-        this.boundHandleInput = (e) => this.handleInput(e);
+  for (let y = cy - 1; y <= cy + 1; y++) {
+    for (let x = cx - 1; x <= cx + 1; x++) {
+      if (mineBoard[y] && mineBoard[y][x] && mineBoard[y][x].mine) {
+        count++;
+      }
     }
+  }
 
-    start() {
-        this.container.style.display = 'block';
-        this.hub.hud.style.display = 'flex';
-        this.hub.timerNumeric.classList.remove('visible');
-        
-        this.active = true;
-        this.container.classList.remove('shake', 'shake-severe'); // Clean start
-        this.pos = 0; // Force start at 0%
-        this.indicator.style.left = '0%'; // Ensure visual start at 0
-        this.isPaused = false;
-        this.completedCount = 0;
-        this.fails = 0;
-        this.isTransiting = true;
-        this.speed = (this.hub.config.lock.speed || 2.5) * 0.7; // Reduce base speed by 30%
-        
-        this.initSlots();
-        
-        if (this.statusText) {
-            this.statusText.textContent = "GET READY";
-            this.statusText.classList.add('visible');
-            this.statusText.style.opacity = '1';
-        }
-
-        window.addEventListener('keydown', this.boundHandleInput);
-        this.container.addEventListener('mousedown', this.boundHandleInput);
-        
-        this.startTime = Date.now();
-        this.lastTime = this.startTime;
-        
-        setTimeout(() => {
-            this.isTransiting = false;
-            if (this.statusText) this.statusText.style.opacity = '0';
-            this.hub.timerNumeric.classList.add('visible');
-        }, 2000);
-
-        this.animate();
-    }
-
-    stop() {
-        this.active = false;
-        this.container.style.display = 'none';
-        cancelAnimationFrame(this.anim);
-        window.removeEventListener('keydown', this.boundHandleInput);
-        this.container.removeEventListener('mousedown', this.boundHandleInput);
-        if (this.statusText) {
-            this.statusText.classList.remove('visible');
-            this.statusText.style.opacity = '0';
-        }
-    }
-
-    initSlots() {
-        this.slotsWrapper.innerHTML = '';
-        this.slots = [];
-        const count = this.hub.config.lock.slots || 5;
-        
-        // Distribute slots with tighter spacing to allow for "double" targets
-        const positions = [];
-        const minGap = 4; // percent - allows clusters
-        const margin = 10; // percent
-        
-        for (let i = 0; i < count; i++) {
-            let p;
-            let attempts = 0;
-            do {
-                p = margin + Math.random() * (100 - 2 * margin);
-                attempts++;
-            } while (positions.some(pos => Math.abs(pos - p) < minGap) && attempts < 50);
-            
-            positions.push(p);
-            
-            const el = document.createElement('div');
-            el.className = 'lock-slot';
-            el.style.left = `${p}%`;
-            this.slotsWrapper.appendChild(el);
-            
-            this.slots.push({
-                pos: p,
-                el: el,
-                completed: false
-            });
-        }
-        
-        // CRITICAL: Sort slots left-to-right to enforce sequence
-        this.slots.sort((a, b) => a.pos - b.pos);
-        this.updateActiveSlot();
-    }
-
-    updateActiveSlot() {
-        this.slots.forEach(s => s.el.classList.remove('active'));
-        const next = this.slots.find(s => !s.completed);
-        if (next) next.el.classList.add('active');
-    }
-
-    handleInput(e) {
-        if (!this.active || this.isTransiting) return;
-        if (e.type === 'keydown' && e.code !== 'KeyE') return;
-        if (e.type === 'mousedown') e.preventDefault();
-        
-        // Anti-spam debounce (200ms)
-        const now = Date.now();
-        if (now - this.lastInputTime < 200) return;
-        this.lastInputTime = now;
-
-        this.checkHit();
-    }
-
-    checkHit() {
-        // Tolerance margin in percent
-        const tolerance = 4; 
-        const nextSlot = this.slots.find(s => !s.completed);
-
-        if (nextSlot && Math.abs(this.pos - nextSlot.pos) < tolerance) {
-            nextSlot.completed = true;
-            nextSlot.el.classList.add('completed');
-            nextSlot.el.classList.remove('active');
-            this.completedCount++;
-            this.hub.playSound(1200, 'triangle', 0.06, true);
-            
-            // Hitstop: Reduced to 200ms based on download.mp4 for snappier feel
-            this.isPaused = true;
-            setTimeout(() => { if (this.active) this.isPaused = false; }, 200);
-
-            this.updateActiveSlot();
-            // Much gentler difficulty scaling
-            this.speed += 0.15;
-        } else {
-            // MISSED OR WRONG ORDER -> IMMEDIATE FAIL
-            this.hub.playSound(150, 'sawtooth', 0.2);
-            this.container.classList.add('shake');
-            this.hub.showResult(false, "0.0", "", "MECHANISM JAMMED");
-        }
-
-
-        if (this.completedCount >= this.slots.length) {
-            const time = ((Date.now() - this.startTime) / 1000 - 2).toFixed(1);
-            this.hub.showResult(true, time, "100%", "LOCK BYPASSED");
-        }
-    }
-
-    animate() {
-        if (!this.active) return;
-        
-        const now = Date.now();
-        const dt = (now - this.lastTime) / 1000;
-        this.lastTime = now;
-
-        if (!this.isTransiting && !this.isPaused) {
-            // Speed is in "screens per second" roughly
-            this.pos += this.speed * dt * 25; 
-            if (this.pos > 100) this.pos = 0;
-            
-            this.indicator.style.left = `${this.pos}%`;
-            
-            // Sequential Check: Did we pass a target we should have hit?
-            const tolerance = 4; 
-            const nextSlot = this.slots.find(s => !s.completed);
-            if (nextSlot && this.pos > nextSlot.pos + (tolerance * 0.8)) {
-                this.hub.playSound(150, 'sawtooth', 0.2);
-                this.container.classList.add('shake');
-                this.hub.showResult(false, "0.0", "", "TARGET MISSED");
-                return;
-            }
-            
-            const elapsed = (now - this.startTime) / 1000 - 2;
-            const limit = 15.0; // 15 second total limit
-            const rem = Math.max(0, limit - elapsed);
-            this.hub.timerNumeric.textContent = rem.toFixed(1) + "s";
-            
-            if (rem <= 0) {
-                this.hub.showResult(false, "0.0", "", "TIME EXPIRED");
-            }
-        }
-
-        this.anim = requestAnimationFrame(() => this.animate());
-    }
+  return count;
 }
+
+function drawMineBoard() {
+  mineBoardEl.innerHTML = "";
+
+  for (let y = 0; y < mineConfig.y; y++) {
+    for (let x = 0; x < mineConfig.x; x++) {
+      const cell = mineBoard[y][x];
+      const div = document.createElement("div");
+
+      div.className = "mine-cell";
+
+      if (cell.open) {
+        div.classList.add("open");
+
+        if (cell.mine) {
+          div.classList.add("mine");
+          div.textContent = "💣";
+        } else if (cell.number > 0) {
+          div.textContent = cell.number;
+          div.classList.add("n" + cell.number);
+        }
+      }
+
+      if (cell.flag && !cell.open) {
+        div.classList.add("flag");
+        div.textContent = "🚩";
+      }
+
+      div.addEventListener("click", () => openMineCell(x, y));
+      div.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        toggleMineFlag(x, y);
+      });
+
+      mineBoardEl.appendChild(div);
+    }
+  }
+}
+
+function openMineCell(x, y) {
+  if (mineGameOver) return;
+
+  const cell = mineBoard[y][x];
+  if (cell.open || cell.flag) return;
+
+  saveMineHistory();
+  cell.open = true;
+
+  if (cell.mine) {
+    mineGameOver = true;
+    revealMines();
+    mineStatusEl.textContent = "BOOM! Kamu kalah. Pakai Undo kalau mau mundur.";
+    drawMineBoard();
+    return;
+  }
+
+  if (cell.number === 0) {
+    openEmptyMineArea(x, y);
+  }
+
+  checkMineWin();
+  drawMineBoard();
+}
+
+function openEmptyMineArea(x, y) {
+  for (let yy = y - 1; yy <= y + 1; yy++) {
+    for (let xx = x - 1; xx <= x + 1; xx++) {
+      if (mineBoard[yy] && mineBoard[yy][xx]) {
+        const cell = mineBoard[yy][xx];
+
+        if (!cell.open && !cell.flag && !cell.mine) {
+          cell.open = true;
+
+          if (cell.number === 0) {
+            openEmptyMineArea(xx, yy);
+          }
+        }
+      }
+    }
+  }
+}
+
+function toggleMineFlag(x, y) {
+  if (mineGameOver) return;
+
+  const cell = mineBoard[y][x];
+  if (cell.open) return;
+
+  saveMineHistory();
+  cell.flag = !cell.flag;
+  drawMineBoard();
+}
+
+function revealMines() {
+  for (let y = 0; y < mineConfig.y; y++) {
+    for (let x = 0; x < mineConfig.x; x++) {
+      if (mineBoard[y][x].mine) {
+        mineBoard[y][x].open = true;
+      }
+    }
+  }
+}
+
+function checkMineWin() {
+  let opened = 0;
+
+  for (let y = 0; y < mineConfig.y; y++) {
+    for (let x = 0; x < mineConfig.x; x++) {
+      if (mineBoard[y][x].open) opened++;
+    }
+  }
+
+  if (opened === mineConfig.x * mineConfig.y - mineConfig.mineCount) {
+    mineGameOver = true;
+    mineStatusEl.textContent = "Kamu menang! Semua bom berhasil dihindari.";
+  }
+}
+
+// =====================
+// COLOR COUNT
+// =====================
+const colorConfig = {
+  time: 5000,
+  answerTime: 5000,
+  amount: 5,
+  maxCount: 6,
+  x: 10,
+  y: 10
+};
+
+const colorList = [
+  { name: "biru", className: "blue" },
+  { name: "hijau", className: "green" },
+  { name: "kuning", className: "yellow" }
+];
+
+const ccTitleEl = document.getElementById("ccTitle");
+const ccRoundEl = document.getElementById("ccRound");
+const ccScoreEl = document.getElementById("ccScore");
+const colorBoardEl = document.getElementById("colorBoard");
+const ccQuestionEl = document.getElementById("ccQuestion");
+const ccAnswersEl = document.getElementById("ccAnswers");
+const ccTimerBar = document.getElementById("ccTimerBar");
+
+let ccRound = 1;
+let ccScore = 0;
+let colorCells = [];
+let targetColor = null;
+let correctAnswer = 0;
+let answerTimer = null;
+let phaseTimer = null;
+
+function startColorCount() {
+  clearTimeout(answerTimer);
+  clearTimeout(phaseTimer);
+  ccRound = 1;
+  ccScore = 0;
+  ccScoreEl.textContent = ccScore;
+  nextColorRound();
+}
+
+function nextColorRound() {
+  clearTimeout(answerTimer);
+  clearTimeout(phaseTimer);
+
+  if (ccRound > colorConfig.amount) {
+    finishColorCount();
+    return;
+  }
+
+  ccTitleEl.textContent = "REMEMBER";
+  ccRoundEl.textContent = `${ccRound} / ${colorConfig.amount}`;
+  ccQuestionEl.textContent = "Ingat jumlah warna yang muncul.";
+  ccAnswersEl.classList.remove("active");
+  ccAnswersEl.innerHTML = "";
+
+  generateColorBoard();
+  drawColorBoard(false);
+  startTimerBar(colorConfig.time);
+
+  phaseTimer = setTimeout(() => {
+    startAnswerPhase();
+  }, colorConfig.time);
+}
+
+function generateColorBoard() {
+  colorCells = [];
+
+  for (let i = 0; i < colorConfig.x * colorConfig.y; i++) {
+    colorCells.push({ color: null });
+  }
+
+  colorList.forEach((color) => {
+    const count = randomNumber(1, colorConfig.maxCount);
+    let placed = 0;
+
+    while (placed < count) {
+      const index = randomNumber(0, colorCells.length - 1);
+      if (!colorCells[index].color) {
+        colorCells[index].color = color;
+        placed++;
+      }
+    }
+  });
+
+  targetColor = colorList[randomNumber(0, colorList.length - 1)];
+  correctAnswer = colorCells.filter((cell) => cell.color && cell.color.name === targetColor.name).length;
+}
+
+function drawColorBoard(hideColors) {
+  colorBoardEl.innerHTML = "";
+
+  colorCells.forEach((cell) => {
+    const div = document.createElement("div");
+    div.className = "color-cell";
+
+    if (cell.color) {
+      div.classList.add(cell.color.className);
+    }
+
+    if (hideColors) {
+      div.classList.add("hidden");
+    }
+
+    colorBoardEl.appendChild(div);
+  });
+}
+
+function startAnswerPhase() {
+  ccTitleEl.textContent = "ANSWER";
+  drawColorBoard(true);
+  ccQuestionEl.innerHTML = `Berapa jumlah kotak warna <b>${targetColor.name}</b>?`;
+
+  ccAnswersEl.classList.add("active");
+  ccAnswersEl.innerHTML = "";
+
+  for (let i = 0; i <= colorConfig.maxCount; i++) {
+    const button = document.createElement("button");
+    button.textContent = i;
+    button.addEventListener("click", () => answerColorCount(i));
+    ccAnswersEl.appendChild(button);
+  }
+
+  startTimerBar(colorConfig.answerTime);
+
+  answerTimer = setTimeout(() => {
+    ccQuestionEl.textContent = `Waktu habis! Jawaban benar: ${correctAnswer}`;
+    ccAnswersEl.classList.remove("active");
+    drawColorBoard(false);
+    ccRound++;
+    phaseTimer = setTimeout(nextColorRound, 1200);
+  }, colorConfig.answerTime);
+}
+
+function answerColorCount(value) {
+  clearTimeout(answerTimer);
+
+  if (value === correctAnswer) {
+    ccScore++;
+    ccScoreEl.textContent = ccScore;
+    ccQuestionEl.textContent = "Benar!";
+  } else {
+    ccQuestionEl.textContent = `Salah! Jawaban benar: ${correctAnswer}`;
+  }
+
+  ccAnswersEl.classList.remove("active");
+  drawColorBoard(false);
+  ccRound++;
+  phaseTimer = setTimeout(nextColorRound, 1200);
+}
+
+function finishColorCount() {
+  ccTitleEl.textContent = "FINISH";
+  ccRoundEl.textContent = "Done";
+  ccQuestionEl.textContent = `Skor akhir kamu: ${ccScore} / ${colorConfig.amount}`;
+  ccAnswersEl.classList.remove("active");
+  ccTimerBar.style.transition = "none";
+  ccTimerBar.style.width = "0%";
+}
+
+function startTimerBar(duration) {
+  ccTimerBar.style.transition = "none";
+  ccTimerBar.style.width = "100%";
+
+  setTimeout(() => {
+    ccTimerBar.style.transition = `width ${duration}ms linear`;
+    ccTimerBar.style.width = "0%";
+  }, 30);
+}
+
+function randomNumber(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// =====================
+// LAPTOP HACK (FLEECA)
+// =====================
+const thConfig = {
+  rounds: 4, // Successes needed
+  time: 30000, // Default time 30s
+  squares: 6 // Default squares 6
+};
+
+const thColors = [
+  { name: "BLACK", hex: "#000000", class: "black" },
+  { name: "WHITE", hex: "#FFFFFF", class: "white" },
+  { name: "BLUE", hex: "#2195ee", class: "blue" },
+  { name: "RED", hex: "#7b0100", class: "red" },
+  { name: "YELLOW", hex: "#fceb3d", class: "yellow" },
+  { name: "ORANGE", hex: "#fd9802", class: "orange" },
+  { name: "GREEN", hex: "#4cae4f", class: "green" },
+  { name: "PURPLE", hex: "#9926ac", class: "purple" }
+];
+
+const thShapes = [
+  { name: "SQUARE", class: "square" },
+  { name: "TRIANGLE", class: "triangle" },
+  { name: "RECTANGLE", class: "rectangle" },
+  { name: "CIRCLE", class: "circle" }
+];
+
+const thQuestions = {
+  'BACKGROUND COLOR': (d) => d.bg.name,
+  'COLOR TEXT BACKGROUND COLOR': (d) => d.textColor.name,
+  'SHAPE TEXT BACKGROUND COLOR': (d) => d.textShapeColor.name,
+  'NUMBER COLOR': (d) => d.numberColor.name,
+  'SHAPE COLOR': (d) => d.shapeFill.name,
+  'COLOR TEXT': (d) => d.textColorName.name,
+  'SHAPE TEXT': (d) => d.textShapeName.name,
+  'SHAPE': (d) => d.shape.name
+};
+
+const thTitleEl = document.getElementById("thTitle");
+const thRoundEl = document.getElementById("thRound");
+const thStatusEl = document.getElementById("thStatus");
+const thBoardEl = document.getElementById("terminalBoard");
+const thQuestionEl = document.getElementById("thQuestion");
+const thInputEl = document.getElementById("thInput");
+const thTimerBar = document.getElementById("thTimerBar");
+const thStartBtn = document.getElementById("thStartBtn");
+
+let thCurrentRound = 1;
+let thActive = false;
+let thTimer = null;
+let thCorrectAnswer = "";
+let thGridData = [];
+let thDisplayNums = [];
+
+async function startTerminalHack() {
+  thCurrentRound = 1;
+  thActive = true;
+  thStartBtn.disabled = true;
+  thInputEl.disabled = false;
+  thInputEl.value = "";
+  thStatusEl.textContent = "IN PROGRESS";
+  thStatusEl.className = "th-success";
+  
+  nextTerminalRound();
+}
+
+async function nextTerminalRound() {
+  if (thCurrentRound > thConfig.rounds) {
+    finishTerminalHack(true);
+    return;
+  }
+
+  thRoundEl.textContent = `${thCurrentRound} / ${thConfig.rounds}`;
+  thTitleEl.textContent = "ATTEMPTING BYPASS...";
+  thQuestionEl.textContent = "Remember the numbers...";
+  thInputEl.value = "";
+  thInputEl.disabled = true;
+  thTimerBar.style.width = "0%";
+
+  generateLaptopData();
+  
+  // Phase 1: Show Numbers
+  await showLaptopNumbers();
+  
+  // Phase 2: Show Puzzles
+  thInputEl.disabled = false;
+  thInputEl.focus();
+  drawLaptopGrid();
+  generateLaptopQuestion();
+  startThTimer();
+}
+
+function generateLaptopData() {
+  thGridData = [];
+  // Generate a shuffled array of numbers from 1 up to the number of squares
+  const availableNums = [];
+  for(let i = 1; i <= thConfig.squares; i++) availableNums.push(i);
+  thDisplayNums = shuffleArray(availableNums);
+  
+  for (let i = 0; i < thConfig.squares; i++) {
+    const bg = thColors[randomNumber(0, thColors.length - 1)];
+    const shape = thShapes[randomNumber(0, thShapes.length - 1)];
+    const shapeFill = thColors[randomNumber(0, thColors.length - 1)];
+    const textColorName = thColors[randomNumber(0, thColors.length - 1)];
+    const textColor = thColors[randomNumber(0, thColors.length - 1)];
+    const textShapeName = thShapes[randomNumber(0, thShapes.length - 1)];
+    const textShapeColor = thColors[randomNumber(0, thColors.length - 1)];
+    const numberColor = thColors[randomNumber(0, thColors.length - 1)];
+    const numberValue = randomNumber(1, 9);
+    
+    thGridData.push({
+      bg, shape, shapeFill, textColorName, textColor, 
+      textShapeName, textShapeColor, numberColor, numberValue,
+      displayNum: thDisplayNums[i]
+    });
+  }
+}
+
+async function showLaptopNumbers() {
+  thBoardEl.innerHTML = "";
+  thGridData.forEach(data => {
+    const square = document.createElement("div");
+    square.className = "laptop-square number-phase";
+    square.textContent = data.displayNum;
+    thBoardEl.appendChild(square);
+  });
+
+  await delayMs(1500);
+  const squares = document.querySelectorAll(".laptop-square");
+  squares.forEach(sq => sq.classList.add("shrinking"));
+  await delayMs(1000);
+}
+
+function drawLaptopGrid() {
+  thBoardEl.innerHTML = "";
+  thGridData.forEach(data => {
+    const square = document.createElement("div");
+    square.className = `laptop-square`;
+    square.style.backgroundColor = data.bg.hex;
+    
+    const svg = `
+      <svg viewBox="0 0 150 150">
+        ${getShapeSvg(data.shape.class, data.shapeFill.hex)}
+        ${getTextSvg(data.textColorName.name, data.textColor.hex, 31)}
+        ${getTextSvg(data.textShapeName.name, data.textShapeColor.hex, 67)}
+        ${getTextSvg(data.numberValue, data.numberColor.hex, 50, 60, "Arial")}
+      </svg>
+    `;
+    
+    square.innerHTML = svg;
+    thBoardEl.appendChild(square);
+  });
+}
+
+function getShapeSvg(type, color) {
+  switch(type) {
+    case 'square': return `<rect fill="${color}" stroke="#000" stroke-width="1" width="150" height="150"/>`;
+    case 'triangle': return `<polygon fill="${color}" stroke="#000" stroke-width="1" points="0 150 75 0 150 150 0 150"/>`;
+    case 'rectangle': return `<rect y="30" fill="${color}" stroke="#000" stroke-width="1" width="150" height="90"/>`;
+    case 'circle': return `<circle fill="${color}" stroke="#000" stroke-width="1" cx="75" cy="75" r="75"/>`;
+    default: return '';
+  }
+}
+
+function getTextSvg(text, color, y, size = 21, font = "Inter") {
+  return `
+    <text stroke="black" fill="${color}" stroke-width="0.5" 
+      style="font-size:${size}px;" font-weight="900" font-family="${font}, sans-serif" 
+      x="50%" y="${y}%" dominant-baseline="middle" text-anchor="middle">
+      ${text}
+    </text>
+  `;
+}
+
+function generateLaptopQuestion() {
+  const qKeys = Object.keys(thQuestions);
+  const q1Key = qKeys[randomNumber(0, qKeys.length - 1)];
+  const q2Key = qKeys[randomNumber(0, qKeys.length - 1)];
+  
+  // Choose random numbers from the ones currently displayed
+  const num1 = thDisplayNums[randomNumber(0, thDisplayNums.length - 1)];
+  const num2 = thDisplayNums[randomNumber(0, thDisplayNums.length - 1)];
+  
+  const target1 = thGridData.find(d => d.displayNum === num1);
+  const target2 = thGridData.find(d => d.displayNum === num2);
+  
+  const a1 = thQuestions[q1Key](target1);
+  const a2 = thQuestions[q2Key](target2);
+  
+  thQuestionEl.textContent = `${q1Key} (${num1}) AND ${q2Key} (${num2})`;
+  thCorrectAnswer = `${a1} ${a2}`.toLowerCase();
+}
+
+function startThTimer() {
+  clearTimeout(thTimer);
+  thTimerBar.style.transition = "none";
+  thTimerBar.style.width = "100%";
+
+  setTimeout(() => {
+    thTimerBar.style.transition = `width ${thConfig.time}ms linear`;
+    thTimerBar.style.width = "0%";
+  }, 30);
+
+  thTimer = setTimeout(() => {
+    finishTerminalHack(false, "TIME EXPIRED");
+  }, thConfig.time);
+}
+
+function finishTerminalHack(success, reason = "") {
+  thActive = false;
+  clearTimeout(thTimer);
+  thInputEl.disabled = true;
+  thStartBtn.disabled = false;
+  
+  if (success) {
+    thTitleEl.textContent = "SYSTEM BYPASSED";
+    thQuestionEl.textContent = "Access granted.";
+    thStatusEl.textContent = "SUCCESS";
+    thStatusEl.className = "th-success";
+  } else {
+    thTitleEl.textContent = "ACCESS DENIED";
+    thQuestionEl.innerHTML = `<span class="th-error">${reason}</span>`;
+    thStatusEl.textContent = "FAILED";
+    thStatusEl.className = "th-error";
+  }
+}
+
+thInputEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && thActive) {
+    const val = thInputEl.value.trim().toLowerCase();
+    if (val === thCorrectAnswer) {
+      thCurrentRound++;
+      nextTerminalRound();
+    } else {
+      finishTerminalHack(false, "WRONG SEQUENCE");
+    }
+  }
+});
+
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+function delayMs(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+const thAmountRange = document.getElementById("thAmountRange");
+const thAmountVal = document.getElementById("thAmountVal");
+const thTimeRange = document.getElementById("thTimeRange");
+const thTimeVal = document.getElementById("thTimeVal");
+
+thAmountRange.addEventListener("input", () => {
+  thConfig.squares = parseInt(thAmountRange.value);
+  thAmountVal.textContent = thAmountRange.value;
+});
+
+thTimeRange.addEventListener("input", () => {
+  thConfig.time = parseInt(thTimeRange.value) * 1000;
+  thTimeVal.textContent = thTimeRange.value;
+});
+
+restartMinesweeper();
+startColorCount();
