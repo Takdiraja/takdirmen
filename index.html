@@ -1,246 +1,156 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="google" content="notranslate">
-    <title>BackToBack Game</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mini Games - Minesweeper & Color Count</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <div id="game-container">
-        <div id="timer-numeric">00.0s</div>
-        <!-- Overlay for blurring background -->
-        <div class="overlay"></div>
-        
-        <!-- HUD & Timer -->
-        <div id="game-hud">
-            <div class="hud-item">
-                <span class="label">STAGE</span>
-                <span id="level-display" class="value">01</span>
-            </div>
-            <div id="timer-bar-container">
-                <div id="timer-bar"></div>
-            </div>
-            <div class="hud-item">
-                <span class="label">LIVES</span>
-                <span id="lives-display" class="value">3</span>
-            </div>
+  <div class="app">
+    <header class="hero">
+      <div class="badge">MINIGAME COLLECTION</div>
+      <h1>DEFUSE ARCADE</h1>
+      <p>Minesweeper + Color Count dalam satu website.</p>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab-btn active" data-game="minesweeper">Minesweeper</button>
+      <button class="tab-btn" data-game="colorcount">Color Count</button>
+      <button class="tab-btn" data-game="terminalhack">Terminal Hack</button>
+    </nav>
+
+    <main>
+      <section id="minesweeper" class="game-panel active">
+        <div class="panel-head">
+          <div>
+            <div class="mini-label">gameName: mineSweeper</div>
+            <h2>DEFUSE BOMB</h2>
+          </div>
+          <div class="stats-row">
+            <div class="stat-card"><span>Board</span><b>9 × 9</b></div>
+            <div class="stat-card"><span>Bombs</span><b id="msBombs">10</b></div>
+            <div class="stat-card"><span>Mode</span><b>Easy</b></div>
+          </div>
         </div>
 
-        <!-- SVG Layer for Paths -->
-        <svg id="game-path" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0;">
-            <line id="connection-line" x1="0" y1="0" x2="0" y2="0" stroke="rgba(0, 255, 136, 0.4)" stroke-width="4" stroke-dasharray="10,5" style="display:none;" />
-        </svg>
-
-        <div id="play-area"></div>
-        <div id="game-interaction-layer"></div>
-
-        <!-- Signal Scrambler (Scrolling Wave) -->
-        <div id="square-path-container" style="display:none; overflow:hidden; position:absolute; top:0; left:0; width:100%; height:100%;">
-            <div id="scrambler-status" style="position:absolute; top:20%; left:50%; transform:translateX(-50%); font-size:2rem; font-weight:800; letter-spacing:10px; color:#fff; z-index:10; opacity:0; transition:opacity 0.3s; pointer-events:none;">CALIBRATING...</div>
-            <svg id="scrambler-svg" style="width:100%; height:100%;">
-                <path id="scrambler-target-path" d="" fill="none" stroke="rgba(0,0,0,0.6)" stroke-width="140" stroke-linejoin="round" stroke-linecap="round" />
-            </svg>
-            <div id="scrambler-cursor" class="rp-cursor"></div>
+        <div class="board-wrap">
+          <div id="mineBoard" class="mine-board"></div>
         </div>
 
-        <!-- Precision Lock Minigame -->
-        <div id="lock-game-container" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:50;">
-            <div id="lock-status" style="position:absolute; top:35%; left:50%; transform:translateX(-50%); font-size:2rem; font-weight:800; letter-spacing:8px; color:#fff; opacity:0; transition:opacity 0.3s;">GET READY</div>
-            
-            <div class="lock-wrapper">
-                <div class="lock-bar-container" id="lock-bar-container">
-                    <div id="lock-indicator"></div>
-                    <div id="lock-slots-wrapper"></div>
-                </div>
-                <div id="lock-instructions" class="lock-instructions">CLICK E TO OPEN LOCK</div>
-            </div>
+        <div class="status" id="mineStatus">Klik kiri untuk buka, klik kanan untuk flag.</div>
+
+        <div class="actions">
+          <button onclick="undoMineMove()">Undo</button>
+          <button onclick="restartMinesweeper()">Restart</button>
         </div>
 
-        <!-- Landing / Start Screen -->
-        <div id="start-screen" class="screen visible">
-            <h1 class="glitch" data-text="EXE MINIGAME">EXE MINIGAME</h1>
-            <p class="subtitle">SELECT YOUR CHALLENGE</p>
-            
-            <div class="hub-container">
-                <div class="game-card" id="select-osu">
-                    <span class="card-icon">🎯</span>
-                    <span class="card-title">FLECCA MINIGAME</span>
-                </div>
-                <div class="game-card" id="select-path">
-                    <span class="card-icon">⚡</span>
-                    <span class="card-title">FLECCA MINIGAME2</span>
-                </div>
-                <div class="game-card" id="select-lock">
-                    <span class="card-icon">🔐</span>
-                    <span class="card-title">ROB HOUSE MINIGAME</span>
-                </div>
-            </div>
+        <div class="tutorial">
+          <h3>Cara Main Simple</h3>
+          <ul>
+            <li>Angka menunjukkan jumlah bom di 8 kotak sekitar.</li>
+            <li>Kalau angka 1 cuma punya 1 kotak tertutup, kotak itu pasti bom.</li>
+            <li>Kalau jumlah flag sudah sama dengan angka, kotak lain di sekitarnya aman.</li>
+            <li>Gunakan Undo kalau salah klik atau kena bom.</li>
+          </ul>
+        </div>
+      </section>
 
-            <div class="menu-buttons" style="margin-top: 40px;">
-                <button id="settings-btn" class="btn secondary">SETTINGS</button>
-            </div>
+      <section id="colorcount" class="game-panel">
+        <div class="panel-head">
+          <div>
+            <div class="mini-label">gameName: colorCount</div>
+            <h2 id="ccTitle">REMEMBER</h2>
+          </div>
+          <div class="stats-row">
+            <div class="stat-card"><span>Round</span><b id="ccRound">1 / 5</b></div>
+            <div class="stat-card"><span>Score</span><b id="ccScore">0</b></div>
+            <div class="stat-card"><span>Grid</span><b>10 × 10</b></div>
+          </div>
         </div>
 
-        <!-- Result Screen -->
-        <div id="result-screen" class="screen">
-            <h2 id="result-title">SUCCESS</h2>
-            <div class="stats">
-                <div class="stat">
-                    <span id="result-label-time">TIME</span>
-                    <span id="result-time">0.0s</span>
-                </div>
-                <div class="stat">
-                    <span>ACCURACY</span>
-                    <span id="result-accuracy">100%</span>
-                </div>
-            </div>
-            <div class="menu-buttons">
-                <button id="retry-btn" class="btn primary">PLAY AGAIN</button>
-                <button id="home-btn" class="btn secondary">MAIN MENU</button>
-            </div>
+        <div class="timer-wrap">
+          <div class="timer-bar" id="ccTimerBar"></div>
         </div>
 
-        <!-- Countdown Overlay -->
-        <div id="countdown-overlay" class="screen">
-            <h1 id="countdown-text" class="glitch">3</h1>
+        <div class="board-wrap">
+          <div id="colorBoard" class="color-board"></div>
         </div>
 
-        <!-- Settings Modal -->
-        <div id="settings-modal" class="modal">
-            <div class="modal-content glass">
-                <div class="modal-header">
-                    <h3>GAME SETTINGS</h3>
-                    <button id="close-settings" class="close-btn">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="setting-group">
-                        <label>Difficulty</label>
-                        <select id="config-difficulty">
-                            <option value="easy" selected>Easy (3 Circles)</option>
-                            <option value="medium">Medium (30 Circles)</option>
-                            <option value="hard">Hard (80 Circles)</option>
-                            <option value="insane">Insane (150 Circles)</option>
-                        </select>
-                    </div>
-                    <div class="setting-group">
-                        <label>Durasi Game (Total Waktu)</label>
-                        <select id="config-time-limit">
-                            <option value="30000">30 Detik</option>
-                            <option value="60000" selected>60 Detik</option>
-                            <option value="180000">180 Detik</option>
-                        </select>
-                    </div>
-                    <div class="setting-group">
-                        <label>Theme Color</label>
-                        <input type="color" id="config-color" value="#00ff88">
-                    </div>
-                    <div class="setting-group">
-                        <label>Waktu per Angka (detik)</label>
-                        <input type="number" id="config-time-per-circle" min="0.5" max="10" step="0.5" value="2.5">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button id="save-settings" class="btn primary">SAVE CHANGES</button>
-                </div>
-            </div>
+        <div class="status" id="ccQuestion">Ingat jumlah warna yang muncul.</div>
+        <div class="answer-buttons" id="ccAnswers"></div>
+
+        <div class="actions">
+          <button onclick="startColorCount()">Restart</button>
         </div>
 
-        <!-- Preparation / Mission Briefing Modal -->
-        <div id="preparation-modal" class="modal">
-            <div class="modal-content glass">
-                <div class="modal-header">
-                    <h2 id="prep-game-title" style="letter-spacing: 2px;">MISSION BRIEFING</h2>
-                    <p id="prep-game-desc" style="color: rgba(255,255,255,0.6); margin-top: 10px; font-size: 0.9rem;">Prepare your focus. Any mistake will terminate the mission.</p>
-                </div>
-                <div class="modal-body" style="padding: 20px 0;">
-                    <div id="prep-settings-osu" class="prep-section" style="display:none;">
-                        <div class="setting-group">
-                            <label>Mission Density (Target Count)</label>
-                            <select id="osu-circle-count">
-                                <option value="10">Training (10)</option>
-                                <option value="30" selected>Standard (30)</option>
-                                <option value="80">Tactical (80)</option>
-                                <option value="150">Insane (150)</option>
-                            </select>
-                        </div>
-                        <div class="setting-group">
-                            <label>Mission Duration (Timer)</label>
-                            <select id="osu-time-limit">
-                                <option value="30000">30 Seconds</option>
-                                <option value="60000" selected>60 Seconds</option>
-                            </select>
-                        </div>
-                        <div class="setting-group">
-                            <label>Response Window (Speed)</label>
-                            <input type="range" id="osu-speed" min="0.5" max="5" step="0.1" value="2.5">
-                            <div style="display:flex; justify-content:space-between; font-size:10px; color:rgba(255,255,255,0.3)">
-                                <span>SLOW</span><span>FAST</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="prep-settings-path" class="prep-section" style="display:none;">
-                        <div class="setting-group">
-                            <label>Tunnel Structural Integrity (Width)</label>
-                            <select id="path-width">
-                                <option value="120">Stable (Wide)</option>
-                                <option value="80" selected>Standard</option>
-                                <option value="50">Unstable (Narrow)</option>
-                            </select>
-                        </div>
-                        <div class="setting-group">
-                            <label>Encryption Flux (Speed)</label>
-                            <input type="range" id="path-speed" min="0.001" max="0.008" step="0.0005" value="0.0025">
-                            <div style="display:flex; justify-content:space-between; font-size:10px; color:rgba(255,255,255,0.3)">
-                                <span>SLOW</span><span>EXPRESS</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="prep-settings-lock" class="prep-section" style="display:none;">
-                        <div class="setting-group">
-                            <label>Lock Complexity (Targets)</label>
-                            <input type="number" id="lock-slots" min="3" max="15" value="10" class="glass">
-                        </div>
-                        <div class="setting-group">
-                            <label>Mechanism Stability (Speed)</label>
-                            <input type="range" id="lock-speed" min="1.5" max="6" step="0.1" value="2.5">
-                            <div style="display:flex; justify-content:space-between; font-size:10px; color:rgba(255,255,255,0.3)">
-                                <span>RELIABLE</span><span>UNSTEADY</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="prep-details" class="setting-hint" style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); margin-top: 10px;">
-                        <p id="prep-hint-text" style="font-size: 0.8rem; line-height: 1.4; color: rgba(255,255,255,0.7);">
-                            PRO TIP: Precision is key. One miss and it's over.
-                        </p>
-                    </div>
-                </div>
-                <div class="modal-footer" style="display: flex; flex-direction: column; gap: 12px;">
-                    <button id="start-mission-btn" class="btn primary">START MISSION</button>
-                    <button id="back-to-hub-btn" class="btn secondary">ABORT</button>
-                </div>
-            </div>
+        <div class="tutorial">
+          <h3>Cara Main Simple</h3>
+          <ul>
+            <li>Fase REMEMBER: hafalkan jumlah warna yang muncul.</li>
+            <li>Fase ANSWER: jawab jumlah kotak warna yang diminta.</li>
+            <li>Timer bar akan menipis saat waktu hampir habis.</li>
+          </ul>
         </div>
-    </div>
+      </section>
 
-    <!-- Credits & Donation Footer -->
-    <div class="footer-credits">
-        <div class="credit-info">
-            <span class="version">VERSION 3.10</span>
-            <span class="author">DEVELOPED BY <span class="highlight">TAKDIR</span></span>
+      <section id="terminalhack" class="game-panel">
+        <div class="panel-head">
+          <div>
+            <div class="mini-label">gameName: laptopHack</div>
+            <h2 id="thTitle">SYSTEM LOCKED</h2>
+          </div>
+          <div class="stats-row">
+            <div class="stat-card"><span>Round</span><b id="thRound">1 / 4</b></div>
+            <div class="stat-card"><span>Time</span><b>7s</b></div>
+            <div class="stat-card"><span>Status</span><b id="thStatus">READY</b></div>
+          </div>
         </div>
-        <a href="https://saweria.co/takdiraja" target="_blank" class="donation-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l8.72-8.72 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-            SUPPORT PROJECT
-        </a>
-    </div>
 
-    <!-- Scripts -->
-    <script src="script.js"></script>
+        <div class="timer-wrap">
+          <div class="timer-bar" id="thTimerBar"></div>
+        </div>
+
+        <div class="laptop-hack-container">
+          <div id="terminalBoard" class="laptop-grid"></div>
+        </div>
+
+        <div class="laptop-input-area">
+          <div class="laptop-prompt" id="thQuestion">Click Start to initiate bypass sequence.</div>
+          <div class="laptop-input-wrapper">
+             <input type="text" id="thInput" placeholder="Enter answer..." autocomplete="off" disabled>
+          </div>
+        </div>
+
+        <div class="laptop-settings">
+          <div class="setting-item">
+            <input type="range" id="thAmountRange" min="1" max="6" value="6">
+            <label>Puzzle amount: <span id="thAmountVal">6</span></label>
+          </div>
+          <div class="setting-item">
+            <input type="range" id="thTimeRange" min="1" max="30" value="30">
+            <label>Puzzle time: <span id="thTimeVal">30</span></label>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="thStartBtn" onclick="startTerminalHack()">Start Hack</button>
+        </div>
+
+        <div class="tutorial">
+          <h3>Cara Main (Laptop Hack)</h3>
+          <ul>
+            <li><strong>Fase 1 (Ingat Nomor):</strong> Hafalkan nomor yang muncul di setiap kotak.</li>
+            <li><strong>Fase 2 (Puzzle):</strong> Perhatikan atribut kotak (Warna, Bentuk, Teks).</li>
+            <li><strong>Jawab:</strong> Perintah menggunakan nomor dari Fase 1. Misal: "SHAPE (3)" artinya bentuk di kotak yang tadi nomornya 3.</li>
+            <li>Gunakan spasi untuk memisahkan jawaban jika ada dua (misal: "blue square").</li>
+          </ul>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
