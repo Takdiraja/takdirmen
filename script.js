@@ -1,5 +1,6 @@
 const tabs = document.querySelectorAll(".tab-btn");
 const panels = document.querySelectorAll(".game-panel");
+let ccHasStarted = false;
 
 tabs.forEach((tab) => {
   tab.addEventListener("click", () => {
@@ -7,7 +8,13 @@ tabs.forEach((tab) => {
     panels.forEach((panel) => panel.classList.remove("active"));
 
     tab.classList.add("active");
-    document.getElementById(tab.dataset.game).classList.add("active");
+    const gameId = tab.dataset.game;
+    document.getElementById(gameId).classList.add("active");
+    
+    if (gameId === 'colorcount' && !ccHasStarted) {
+      ccHasStarted = true;
+      startColorCount();
+    }
   });
 });
 
@@ -37,7 +44,7 @@ function saveMineHistory() {
 
 function undoMineMove() {
   if (mineHistory.length === 0) {
-    mineStatusEl.textContent = "Belum ada langkah untuk di-undo.";
+    mineStatusEl.textContent = "Belum ada langkah untuk dikembalikan.";
     return;
   }
 
@@ -52,7 +59,7 @@ function restartMinesweeper() {
   mineBoard = [];
   mineHistory = [];
   mineGameOver = false;
-  mineStatusEl.textContent = "Klik kiri untuk buka, klik kanan untuk flag.";
+  mineStatusEl.textContent = "Klik kiri untuk buka, klik kanan untuk tandai.";
 
   for (let y = 0; y < mineConfig.y; y++) {
     mineBoard[y] = [];
@@ -150,7 +157,7 @@ function openMineCell(x, y) {
   if (cell.mine) {
     mineGameOver = true;
     revealMines();
-    mineStatusEl.textContent = "BOOM! Kamu kalah. Pakai Undo kalau mau mundur.";
+    mineStatusEl.textContent = "BOOM! Kamu kalah. Klik Kembali jika ingin membatalkan.";
     drawMineBoard();
     return;
   }
@@ -213,7 +220,7 @@ function checkMineWin() {
 
   if (opened === mineConfig.x * mineConfig.y - mineConfig.mineCount) {
     mineGameOver = true;
-    mineStatusEl.textContent = "Kamu menang! Semua bom berhasil dihindari.";
+    mineStatusEl.textContent = "Kamu menang! Semua bom berhasil dijinakkan.";
   }
 }
 
@@ -224,15 +231,16 @@ const colorConfig = {
   time: 5000,
   answerTime: 5000,
   amount: 5,
-  maxCount: 6,
+  minCount: 3, 
+  maxCount: 3, 
   x: 10,
   y: 10
 };
 
 const colorList = [
-  { name: "biru", className: "blue" },
-  { name: "hijau", className: "green" },
-  { name: "kuning", className: "yellow" }
+  { name: "BLUE", className: "blue" },
+  { name: "GREEN", className: "green" },
+  { name: "YELLOW", className: "yellow" }
 ];
 
 const ccTitleEl = document.getElementById("ccTitle");
@@ -240,7 +248,7 @@ const ccRoundEl = document.getElementById("ccRound");
 const ccScoreEl = document.getElementById("ccScore");
 const colorBoardEl = document.getElementById("colorBoard");
 const ccQuestionEl = document.getElementById("ccQuestion");
-const ccAnswersEl = document.getElementById("ccAnswers");
+const ccInputEl = document.getElementById("ccInput");
 const ccTimerBar = document.getElementById("ccTimerBar");
 
 let ccRound = 1;
@@ -256,8 +264,27 @@ function startColorCount() {
   clearTimeout(phaseTimer);
   ccRound = 1;
   ccScore = 0;
-  ccScoreEl.textContent = ccScore;
-  nextColorRound();
+  if (ccScoreEl) ccScoreEl.textContent = ccScore;
+  if (ccInputEl) ccInputEl.style.opacity = "1";
+  
+  ccHasStarted = true;
+  showColorCountCountdown(3);
+}
+
+function showColorCountCountdown(count) {
+  document.getElementById("ccGridWrapper").style.display = "flex";
+  document.getElementById("ccAnswerWrapper").style.display = "none";
+  colorBoardEl.innerHTML = ""; 
+  ccRoundEl.textContent = `0 / ${colorConfig.amount}`;
+
+  if (count > 0) {
+    ccTitleEl.textContent = `BERSIAP: ${count}...`;
+    phaseTimer = setTimeout(() => {
+      showColorCountCountdown(count - 1);
+    }, 1000);
+  } else {
+    nextColorRound();
+  }
 }
 
 function nextColorRound() {
@@ -269,11 +296,16 @@ function nextColorRound() {
     return;
   }
 
-  ccTitleEl.textContent = "REMEMBER";
+  ccTitleEl.textContent = "INGATLAH";
   ccRoundEl.textContent = `${ccRound} / ${colorConfig.amount}`;
-  ccQuestionEl.textContent = "Ingat jumlah warna yang muncul.";
-  ccAnswersEl.classList.remove("active");
-  ccAnswersEl.innerHTML = "";
+  
+  document.getElementById("ccGridWrapper").style.display = "flex";
+  document.getElementById("ccAnswerWrapper").style.display = "none";
+
+  if (ccInputEl) {
+    ccInputEl.disabled = true;
+    ccInputEl.value = "";
+  }
 
   generateColorBoard();
   drawColorBoard(false);
@@ -291,11 +323,18 @@ function generateColorBoard() {
     colorCells.push({ color: null });
   }
 
-  colorList.forEach((color) => {
-    const count = randomNumber(1, colorConfig.maxCount);
-    let placed = 0;
+  const selectedColors = [...colorList];
+  
+  const validCombinations = [
+    [3, 4, 6], [3, 6, 4], [4, 3, 6], [4, 6, 3], [6, 3, 4], [6, 4, 3],
+    [3, 5, 5], [5, 3, 5], [5, 5, 3],
+    [4, 4, 5], [4, 5, 4], [5, 4, 4]
+  ];
+  const counts = validCombinations[randomNumber(0, validCombinations.length - 1)];
 
-    while (placed < count) {
+  selectedColors.forEach((color, idx) => {
+    let placed = 0;
+    while(placed < counts[idx]) {
       const index = randomNumber(0, colorCells.length - 1);
       if (!colorCells[index].color) {
         colorCells[index].color = color;
@@ -304,7 +343,7 @@ function generateColorBoard() {
     }
   });
 
-  targetColor = colorList[randomNumber(0, colorList.length - 1)];
+  targetColor = selectedColors[randomNumber(0, selectedColors.length - 1)];
   correctAnswer = colorCells.filter((cell) => cell.color && cell.color.name === targetColor.name).length;
 }
 
@@ -328,53 +367,64 @@ function drawColorBoard(hideColors) {
 }
 
 function startAnswerPhase() {
-  ccTitleEl.textContent = "ANSWER";
-  drawColorBoard(true);
-  ccQuestionEl.innerHTML = `Berapa jumlah kotak warna <b>${targetColor.name}</b>?`;
+  ccTitleEl.textContent = "JAWABLAH";
+  document.getElementById("ccGridWrapper").style.display = "none";
+  document.getElementById("ccAnswerWrapper").style.display = "flex";
+  
+  ccQuestionEl.textContent = `ADA BERAPA KOTAK WARNA ${targetColor.name}?`;
 
-  ccAnswersEl.classList.add("active");
-  ccAnswersEl.innerHTML = "";
-
-  for (let i = 0; i <= colorConfig.maxCount; i++) {
-    const button = document.createElement("button");
-    button.textContent = i;
-    button.addEventListener("click", () => answerColorCount(i));
-    ccAnswersEl.appendChild(button);
+  if (ccInputEl) {
+    ccInputEl.disabled = false;
+    ccInputEl.value = "";
+    setTimeout(() => { ccInputEl.focus(); }, 10);
   }
 
   startTimerBar(colorConfig.answerTime);
 
   answerTimer = setTimeout(() => {
-    ccQuestionEl.textContent = `Waktu habis! Jawaban benar: ${correctAnswer}`;
-    ccAnswersEl.classList.remove("active");
-    drawColorBoard(false);
+    ccQuestionEl.textContent = `WAKTU HABIS! JAWABANNYA ${correctAnswer}`;
+    if (ccInputEl) ccInputEl.disabled = true;
     ccRound++;
     phaseTimer = setTimeout(nextColorRound, 1200);
   }, colorConfig.answerTime);
 }
 
+if (ccInputEl) {
+  ccInputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !ccInputEl.disabled) {
+      const val = parseInt(ccInputEl.value.trim());
+      if (!isNaN(val)) answerColorCount(val);
+    }
+  });
+}
+
 function answerColorCount(value) {
   clearTimeout(answerTimer);
+  if (ccInputEl) ccInputEl.disabled = true;
 
   if (value === correctAnswer) {
     ccScore++;
-    ccScoreEl.textContent = ccScore;
-    ccQuestionEl.textContent = "Benar!";
+    if (ccScoreEl) ccScoreEl.textContent = ccScore;
+    ccQuestionEl.textContent = "BENAR!";
   } else {
-    ccQuestionEl.textContent = `Salah! Jawaban benar: ${correctAnswer}`;
+    ccQuestionEl.textContent = `SALAH! JAWABANNYA ${correctAnswer}`;
   }
 
-  ccAnswersEl.classList.remove("active");
-  drawColorBoard(false);
   ccRound++;
   phaseTimer = setTimeout(nextColorRound, 1200);
 }
 
 function finishColorCount() {
-  ccTitleEl.textContent = "FINISH";
-  ccRoundEl.textContent = "Done";
-  ccQuestionEl.textContent = `Skor akhir kamu: ${ccScore} / ${colorConfig.amount}`;
-  ccAnswersEl.classList.remove("active");
+  ccTitleEl.textContent = "SELESAI";
+  document.getElementById("ccGridWrapper").style.display = "none";
+  document.getElementById("ccAnswerWrapper").style.display = "flex";
+  
+  ccRoundEl.textContent = "SELESAI";
+  ccQuestionEl.textContent = `SKOR: ${ccScore} / ${colorConfig.amount}`;
+  if (ccInputEl) {
+    ccInputEl.disabled = true;
+    ccInputEl.style.opacity = "0";
+  }
   ccTimerBar.style.transition = "none";
   ccTimerBar.style.width = "0%";
 }
@@ -397,9 +447,9 @@ function randomNumber(min, max) {
 // LAPTOP HACK (FLEECA)
 // =====================
 const thConfig = {
-  rounds: 4, // Successes needed
-  time: 30000, // Default time 30s
-  squares: 6 // Default squares 6
+  rounds: 4, 
+  time: 30000, 
+  squares: 6 
 };
 
 const thColors = [
@@ -431,14 +481,10 @@ const thQuestions = {
   'SHAPE': (d) => d.shape.name
 };
 
-const thTitleEl = document.getElementById("thTitle");
-const thRoundEl = document.getElementById("thRound");
-const thStatusEl = document.getElementById("thStatus");
-const thBoardEl = document.getElementById("terminalBoard");
+const thBoardEl = document.getElementById("thGrid");
 const thQuestionEl = document.getElementById("thQuestion");
 const thInputEl = document.getElementById("thInput");
 const thTimerBar = document.getElementById("thTimerBar");
-const thStartBtn = document.getElementById("thStartBtn");
 
 let thCurrentRound = 1;
 let thActive = false;
@@ -447,15 +493,41 @@ let thCorrectAnswer = "";
 let thGridData = [];
 let thDisplayNums = [];
 
+function showThScreen(screenId) {
+  document.querySelectorAll('#laptopHack .th-screen').forEach(el => el.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+}
+
+function showThStartScreen() {
+  showThScreen('thStartScreen');
+}
+
+function initHackerman() {
+  let amount = parseInt(document.getElementById("thAmount").value);
+  let timeStr = parseInt(document.getElementById("thTime").value);
+  
+  if (isNaN(amount) || amount < 1) amount = 1;
+  if (amount > 8) amount = 8;
+  
+  if (isNaN(timeStr) || timeStr < 3) timeStr = 3;
+  if (timeStr > 60) timeStr = 60;
+
+  thConfig.squares = amount;
+  thConfig.time = timeStr * 1000;
+  
+  showThScreen('thLoadingScreen');
+  setTimeout(() => {
+    startTerminalHack();
+  }, 2000);
+}
+
 async function startTerminalHack() {
   thCurrentRound = 1;
   thActive = true;
-  thStartBtn.disabled = true;
   thInputEl.disabled = false;
   thInputEl.value = "";
-  thStatusEl.textContent = "IN PROGRESS";
-  thStatusEl.className = "th-success";
   
+  showThScreen('thGameScreen');
   nextTerminalRound();
 }
 
@@ -465,19 +537,20 @@ async function nextTerminalRound() {
     return;
   }
 
+  const thRoundEl = document.getElementById("thRound");
   thRoundEl.textContent = `${thCurrentRound} / ${thConfig.rounds}`;
-  thTitleEl.textContent = "ATTEMPTING BYPASS...";
-  thQuestionEl.textContent = "Remember the numbers...";
+  thQuestionEl.textContent = "Hafalkan angka-angkanya...";
   thInputEl.value = "";
   thInputEl.disabled = true;
   thTimerBar.style.width = "0%";
+  
+  const thTimeLeft = document.getElementById("thTimeLeft");
+  thTimeLeft.textContent = `${thConfig.time / 1000}s`;
 
   generateLaptopData();
   
-  // Phase 1: Show Numbers
   await showLaptopNumbers();
   
-  // Phase 2: Show Puzzles
   thInputEl.disabled = false;
   thInputEl.focus();
   drawLaptopGrid();
@@ -487,7 +560,6 @@ async function nextTerminalRound() {
 
 function generateLaptopData() {
   thGridData = [];
-  // Generate a shuffled array of numbers from 1 up to the number of squares
   const availableNums = [];
   for(let i = 1; i <= thConfig.squares; i++) availableNums.push(i);
   thDisplayNums = shuffleArray(availableNums);
@@ -495,7 +567,12 @@ function generateLaptopData() {
   for (let i = 0; i < thConfig.squares; i++) {
     const bg = thColors[randomNumber(0, thColors.length - 1)];
     const shape = thShapes[randomNumber(0, thShapes.length - 1)];
-    const shapeFill = thColors[randomNumber(0, thColors.length - 1)];
+    
+    let shapeFill = thColors[randomNumber(0, thColors.length - 1)];
+    while (shapeFill.name === bg.name) {
+      shapeFill = thColors[randomNumber(0, thColors.length - 1)];
+    }
+    
     const textColorName = thColors[randomNumber(0, thColors.length - 1)];
     const textColor = thColors[randomNumber(0, thColors.length - 1)];
     const textShapeName = thShapes[randomNumber(0, thShapes.length - 1)];
@@ -568,22 +645,24 @@ function getTextSvg(text, color, y, size = 21, font = "Inter") {
 }
 
 function generateLaptopQuestion() {
-  const qKeys = Object.keys(thQuestions);
-  const q1Key = qKeys[randomNumber(0, qKeys.length - 1)];
-  const q2Key = qKeys[randomNumber(0, qKeys.length - 1)];
-  
-  // Choose random numbers from the ones currently displayed
   const num1 = thDisplayNums[randomNumber(0, thDisplayNums.length - 1)];
-  const num2 = thDisplayNums[randomNumber(0, thDisplayNums.length - 1)];
-  
   const target1 = thGridData.find(d => d.displayNum === num1);
-  const target2 = thGridData.find(d => d.displayNum === num2);
-  
-  const a1 = thQuestions[q1Key](target1);
-  const a2 = thQuestions[q2Key](target2);
-  
-  thQuestionEl.textContent = `${q1Key} (${num1}) AND ${q2Key} (${num2})`;
-  thCorrectAnswer = `${a1} ${a2}`.toLowerCase();
+  const a1 = thQuestions['SHAPE'](target1);
+
+  if (thDisplayNums.length === 1) {
+    thQuestionEl.textContent = `SHAPE (${num1})`;
+    thCorrectAnswer = `${a1}`.toLowerCase();
+  } else {
+    let num2 = thDisplayNums[randomNumber(0, thDisplayNums.length - 1)];
+    while (num2 === num1) {
+      num2 = thDisplayNums[randomNumber(0, thDisplayNums.length - 1)];
+    }
+    const target2 = thGridData.find(d => d.displayNum === num2);
+    const a2 = thQuestions['SHAPE'](target2);
+    
+    thQuestionEl.textContent = `SHAPE (${num1}) AND SHAPE (${num2})`;
+    thCorrectAnswer = `${a1} ${a2}`.toLowerCase();
+  }
 }
 
 function startThTimer() {
@@ -604,19 +683,24 @@ function startThTimer() {
 function finishTerminalHack(success, reason = "") {
   thActive = false;
   clearTimeout(thTimer);
-  thInputEl.disabled = true;
-  thStartBtn.disabled = false;
+  showThScreen('thEndScreen');
+  
+  const title = document.getElementById('thEndTitle');
+  const subtext = document.getElementById('thEndSubtext');
+  const icon = document.getElementById('thEndIcon');
   
   if (success) {
-    thTitleEl.textContent = "SYSTEM BYPASSED";
-    thQuestionEl.textContent = "Access granted.";
-    thStatusEl.textContent = "SUCCESS";
-    thStatusEl.className = "th-success";
+    icon.innerHTML = `<svg viewBox="0 0 24 24" fill="#4caf50" width="80" height="80"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
+    title.textContent = "AKSES DITERIMA";
+    title.style.color = "#4caf50";
+    subtext.textContent = "Anda berhasil menembus keamanan sistem.";
   } else {
-    thTitleEl.textContent = "ACCESS DENIED";
-    thQuestionEl.innerHTML = `<span class="th-error">${reason}</span>`;
-    thStatusEl.textContent = "FAILED";
-    thStatusEl.className = "th-error";
+    icon.innerHTML = `<svg viewBox="0 0 24 24" fill="#ff5252" width="80" height="80"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/></svg>`;
+    title.textContent = "SISTEM MENOLAK JAWABAN ANDA";
+    title.style.color = "#ffffff";
+    
+    let endMessage = reason === "TIME EXPIRED" ? "Waktu Anda habis" : "Jawaban salah";
+    subtext.innerHTML = `${endMessage}, jawaban benarnya: "${thCorrectAnswer}"<br><br><span style="color: #8a9ba8; font-size: 14px;">Terlalu cepat? Berlatihlah dengan menambah waktunya!</span>`;
   }
 }
 
@@ -644,20 +728,7 @@ function delayMs(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-const thAmountRange = document.getElementById("thAmountRange");
-const thAmountVal = document.getElementById("thAmountVal");
-const thTimeRange = document.getElementById("thTimeRange");
-const thTimeVal = document.getElementById("thTimeVal");
 
-thAmountRange.addEventListener("input", () => {
-  thConfig.squares = parseInt(thAmountRange.value);
-  thAmountVal.textContent = thAmountRange.value;
-});
 
-thTimeRange.addEventListener("input", () => {
-  thConfig.time = parseInt(thTimeRange.value) * 1000;
-  thTimeVal.textContent = thTimeRange.value;
-});
-
+// Let only Minesweeper auto start on load
 restartMinesweeper();
-startColorCount();
