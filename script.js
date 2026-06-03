@@ -645,12 +645,15 @@ function getTextSvg(text, color, y, size = 21, font = "Inter") {
 }
 
 function generateLaptopQuestion() {
+  const questionKeys = Object.keys(thQuestions);
+  
   const num1 = thDisplayNums[randomNumber(0, thDisplayNums.length - 1)];
   const target1 = thGridData.find(d => d.displayNum === num1);
-  const a1 = thQuestions['SHAPE'](target1);
+  const qType1 = questionKeys[randomNumber(0, questionKeys.length - 1)];
+  const a1 = thQuestions[qType1](target1);
 
   if (thDisplayNums.length === 1) {
-    thQuestionEl.textContent = `SHAPE (${num1})`;
+    thQuestionEl.textContent = `${qType1} (${num1})`;
     thCorrectAnswer = `${a1}`.toLowerCase();
   } else {
     let num2 = thDisplayNums[randomNumber(0, thDisplayNums.length - 1)];
@@ -658,9 +661,10 @@ function generateLaptopQuestion() {
       num2 = thDisplayNums[randomNumber(0, thDisplayNums.length - 1)];
     }
     const target2 = thGridData.find(d => d.displayNum === num2);
-    const a2 = thQuestions['SHAPE'](target2);
+    const qType2 = questionKeys[randomNumber(0, questionKeys.length - 1)];
+    const a2 = thQuestions[qType2](target2);
     
-    thQuestionEl.textContent = `SHAPE (${num1}) AND SHAPE (${num2})`;
+    thQuestionEl.textContent = `${qType1} (${num1}) AND ${qType2} (${num2})`;
     thCorrectAnswer = `${a1} ${a2}`.toLowerCase();
   }
 }
