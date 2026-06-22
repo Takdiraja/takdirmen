@@ -231,16 +231,15 @@ const colorConfig = {
   time: 5000,
   answerTime: 5000,
   amount: 5,
-  minCount: 3,
-  maxCount: 3,
-  x: 10,
-  y: 10
+  x: 12,
+  y: 12,
+  variation: 1
 };
 
 const colorList = [
-  { name: "BLUE", className: "blue" },
-  { name: "GREEN", className: "green" },
-  { name: "YELLOW", className: "yellow" }
+  { name: "BIRU", className: "blue" },
+  { name: "HIJAU", className: "green" },
+  { name: "KUNING", className: "yellow" }
 ];
 
 const ccTitleEl = document.getElementById("ccTitle");
@@ -262,10 +261,34 @@ let phaseTimer = null;
 function startColorCount() {
   clearTimeout(answerTimer);
   clearTimeout(phaseTimer);
+
+  // Read manual config from inputs
+  const memTimeInput = document.getElementById("ccMemTime");
+  const ansTimeInput = document.getElementById("ccAnsTime");
+  const varInput = document.getElementById("ccVariation");
+
+  if (memTimeInput) colorConfig.time = (parseInt(memTimeInput.value) || 5) * 1000;
+  if (ansTimeInput) colorConfig.answerTime = (parseInt(ansTimeInput.value) || 5) * 1000;
+  if (varInput) colorConfig.variation = parseInt(varInput.value) || 1;
+
   ccRound = 1;
   ccScore = 0;
   if (ccScoreEl) ccScoreEl.textContent = ccScore;
-  if (ccInputEl) ccInputEl.style.opacity = "1";
+  if (ccInputEl) {
+    ccInputEl.style.opacity = "1";
+    ccInputEl.disabled = false;
+    ccInputEl.value = "";
+  }
+
+  // Reset timer bar
+  if (ccTimerBar) {
+    ccTimerBar.style.transition = "none";
+    ccTimerBar.style.width = "100%";
+  }
+
+  // Hide result overlay if visible
+  const resultArea = document.getElementById("ccResultArea");
+  if (resultArea) resultArea.style.display = "none";
 
   ccHasStarted = true;
   showColorCountCountdown(3);
@@ -324,13 +347,20 @@ function generateColorBoard() {
   }
 
   const selectedColors = [...colorList];
+  let counts;
 
-  const validCombinations = [
-    [3, 4, 6], [3, 6, 4], [4, 3, 6], [4, 6, 3], [6, 3, 4], [6, 4, 3],
-    [3, 5, 5], [5, 3, 5], [5, 5, 3],
-    [4, 4, 5], [4, 5, 4], [5, 4, 4]
-  ];
-  const counts = validCombinations[randomNumber(0, validCombinations.length - 1)];
+  if (colorConfig.variation === 2) {
+    // Variasi 2: jumlah acak 5-10 per warna
+    counts = selectedColors.map(() => randomNumber(5, 10));
+  } else {
+    // Variasi 1: pola tetap
+    const validCombinations = [
+      [3, 4, 6], [3, 6, 4], [4, 3, 6], [4, 6, 3], [6, 3, 4], [6, 4, 3],
+      [3, 5, 5], [5, 3, 5], [5, 5, 3],
+      [4, 4, 5], [4, 5, 4], [5, 4, 4]
+    ];
+    counts = validCombinations[randomNumber(0, validCombinations.length - 1)];
+  }
 
   selectedColors.forEach((color, idx) => {
     let placed = 0;
@@ -372,6 +402,7 @@ function startAnswerPhase() {
   document.getElementById("ccAnswerWrapper").style.display = "flex";
 
   ccQuestionEl.textContent = `ADA BERAPA KOTAK WARNA ${targetColor.name}?`;
+  ccQuestionEl.style.color = "";
 
   if (ccInputEl) {
     ccInputEl.disabled = false;
@@ -383,9 +414,13 @@ function startAnswerPhase() {
 
   answerTimer = setTimeout(() => {
     ccQuestionEl.textContent = `WAKTU HABIS! JAWABANNYA ${correctAnswer}`;
+    ccQuestionEl.style.color = "#f44336";
     if (ccInputEl) ccInputEl.disabled = true;
     ccRound++;
-    phaseTimer = setTimeout(nextColorRound, 1200);
+    phaseTimer = setTimeout(() => {
+      ccQuestionEl.style.color = "";
+      nextColorRound();
+    }, 1200);
   }, colorConfig.answerTime);
 }
 
@@ -405,28 +440,88 @@ function answerColorCount(value) {
   if (value === correctAnswer) {
     ccScore++;
     if (ccScoreEl) ccScoreEl.textContent = ccScore;
-    ccQuestionEl.textContent = "BENAR!";
+    ccQuestionEl.textContent = "✓ BENAR!";
+    ccQuestionEl.style.color = "#4caf50";
   } else {
-    ccQuestionEl.textContent = `SALAH! JAWABANNYA ${correctAnswer}`;
+    ccQuestionEl.textContent = `✗ SALAH! JAWABANNYA ${correctAnswer}`;
+    ccQuestionEl.style.color = "#f44336";
   }
 
   ccRound++;
-  phaseTimer = setTimeout(nextColorRound, 1200);
+  phaseTimer = setTimeout(() => {
+    ccQuestionEl.style.color = "";
+    nextColorRound();
+  }, 1200);
 }
 
 function finishColorCount() {
   ccTitleEl.textContent = "SELESAI";
   document.getElementById("ccGridWrapper").style.display = "none";
-  document.getElementById("ccAnswerWrapper").style.display = "flex";
+  document.getElementById("ccAnswerWrapper").style.display = "none";
 
   ccRoundEl.textContent = "SELESAI";
-  ccQuestionEl.textContent = `SKOR: ${ccScore} / ${colorConfig.amount}`;
   if (ccInputEl) {
     ccInputEl.disabled = true;
     ccInputEl.style.opacity = "0";
   }
   ccTimerBar.style.transition = "none";
   ccTimerBar.style.width = "0%";
+
+  // Create result overlay if it doesn't exist
+  let resultArea = document.getElementById("ccResultArea");
+  if (!resultArea) {
+    resultArea = document.createElement("div");
+    resultArea.id = "ccResultArea";
+    resultArea.className = "cc-result-screen";
+
+    const icon = document.createElement("div");
+    icon.className = "end-icon";
+    icon.id = "ccEndIcon";
+    resultArea.appendChild(icon);
+
+    const title = document.createElement("h2");
+    title.id = "ccEndTitle";
+    title.style.textAlign = "center";
+    title.style.marginBottom = "15px";
+    resultArea.appendChild(title);
+
+    const message = document.createElement("p");
+    message.id = "ccEndMessage";
+    message.style.textAlign = "center";
+    message.style.color = "#8a9ba8";
+    message.style.marginBottom = "25px";
+    resultArea.appendChild(message);
+
+    const btn = document.createElement("button");
+    btn.className = "prodigy-btn";
+    btn.textContent = "MAIN LAGI";
+    btn.onclick = () => {
+      resultArea.style.display = "none";
+      startColorCount();
+    };
+    resultArea.appendChild(btn);
+
+    const gameBox = document.querySelector("#colorcount .np-game-box");
+    if (gameBox) gameBox.appendChild(resultArea);
+  }
+
+  resultArea.style.display = "flex";
+
+  const endIcon = document.getElementById("ccEndIcon");
+  const endTitle = document.getElementById("ccEndTitle");
+  const endMessage = document.getElementById("ccEndMessage");
+
+  endMessage.textContent = `Skor dekripsi: ${ccScore} / ${colorConfig.amount}`;
+
+  if (ccScore >= 4) {
+    endIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="#4caf50" width="80" height="80"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
+    endTitle.textContent = "DEKRIPSI BERHASIL";
+    endTitle.style.color = "#4caf50";
+  } else {
+    endIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="#ff5252" width="80" height="80"><path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z"/></svg>`;
+    endTitle.textContent = "DEKRIPSI GAGAL";
+    endTitle.style.color = "#ff5252";
+  }
 }
 
 function startTimerBar(duration) {
@@ -478,7 +573,8 @@ const thQuestions = {
   'SHAPE COLOR': (d) => d.shapeFill.name,
   'COLOR TEXT': (d) => d.textColorName.name,
   'SHAPE TEXT': (d) => d.textShapeName.name,
-  'SHAPE': (d) => d.shape.name
+  'SHAPE': (d) => d.shape.name,
+  'TEXT COLOR': (d) => d.textColor.name
 };
 
 const thBoardEl = document.getElementById("thGrid");
@@ -515,10 +611,7 @@ function initHackerman() {
   thConfig.squares = amount;
   thConfig.time = timeStr * 1000;
 
-  showThScreen('thLoadingScreen');
-  setTimeout(() => {
-    startTerminalHack();
-  }, 2000);
+  startTerminalHack();
 }
 
 async function startTerminalHack() {
@@ -532,6 +625,7 @@ async function startTerminalHack() {
 }
 
 async function nextTerminalRound() {
+  clearTimeout(thTimer);
   if (thCurrentRound > thConfig.rounds) {
     finishTerminalHack(true);
     return;
@@ -577,12 +671,26 @@ function generateLaptopData() {
     const textColor = thColors[randomNumber(0, thColors.length - 1)];
     const textShapeName = thShapes[randomNumber(0, thShapes.length - 1)];
     const textShapeColor = thColors[randomNumber(0, thColors.length - 1)];
-    const numberColor = thColors[randomNumber(0, thColors.length - 1)];
-    const numberValue = randomNumber(1, 9);
+    
+    // Generate inner shape and color
+    let innerShape = thShapes[randomNumber(0, thShapes.length - 1)];
+    let innerShapeColor = thColors[randomNumber(0, thColors.length - 1)];
+    while (innerShapeColor.name === shapeFill.name) {
+      innerShapeColor = thColors[randomNumber(0, thColors.length - 1)];
+    }
+
+    // Set number color, ensuring it has contrast with the inner shape color
+    let numberColor = thColors[randomNumber(0, thColors.length - 1)];
+    while (numberColor.name === innerShapeColor.name) {
+      numberColor = thColors[randomNumber(0, thColors.length - 1)];
+    }
+    
+    const numberValue = thDisplayNums[i];
 
     thGridData.push({
       bg, shape, shapeFill, textColorName, textColor,
       textShapeName, textShapeColor, numberColor, numberValue,
+      innerShape, innerShapeColor,
       displayNum: thDisplayNums[i]
     });
   }
@@ -593,11 +701,16 @@ async function showLaptopNumbers() {
   thGridData.forEach(data => {
     const square = document.createElement("div");
     square.className = "laptop-square number-phase";
-    square.textContent = data.displayNum;
+    
+    const span = document.createElement("span");
+    span.textContent = data.displayNum;
+    square.appendChild(span);
+    
     thBoardEl.appendChild(square);
   });
 
-  await delayMs(1500);
+  const memorizeTime = 1000 + (thConfig.squares * 300);
+  await delayMs(memorizeTime);
   const squares = document.querySelectorAll(".laptop-square");
   squares.forEach(sq => sq.classList.add("shrinking"));
   await delayMs(1000);
@@ -613,9 +726,10 @@ function drawLaptopGrid() {
     const svg = `
       <svg viewBox="0 0 150 150">
         ${getShapeSvg(data.shape.class, data.shapeFill.hex)}
-        ${getTextSvg(data.textColorName.name, data.textColor.hex, 31)}
-        ${getTextSvg(data.textShapeName.name, data.textShapeColor.hex, 67)}
-        ${getTextSvg(data.numberValue, data.numberColor.hex, 50, 60, "Arial")}
+        ${getInnerShapeSvg(data.innerShape.class, data.innerShapeColor.hex)}
+        ${getTextSvg(data.textColorName.name, data.textColor.hex, 26)}
+        ${getTextSvg(data.textShapeName.name, data.textShapeColor.hex, 78)}
+        ${getTextSvg(data.numberValue, data.numberColor.hex, 52, 42, "Arial")}
       </svg>
     `;
 
@@ -624,17 +738,27 @@ function drawLaptopGrid() {
   });
 }
 
-function getShapeSvg(type, color) {
+function getInnerShapeSvg(type, color) {
   switch (type) {
-    case 'square': return `<rect fill="${color}" stroke="#000" stroke-width="1" width="150" height="150"/>`;
-    case 'triangle': return `<polygon fill="${color}" stroke="#000" stroke-width="1" points="0 150 75 0 150 150 0 150"/>`;
-    case 'rectangle': return `<rect y="30" fill="${color}" stroke="#000" stroke-width="1" width="150" height="90"/>`;
-    case 'circle': return `<circle fill="${color}" stroke="#000" stroke-width="1" cx="75" cy="75" r="75"/>`;
+    case 'square': return `<rect x="47" y="47" fill="${color}" stroke="#000" stroke-width="1.5" width="56" height="56"/>`;
+    case 'triangle': return `<polygon fill="${color}" stroke="#000" stroke-width="1.5" points="75 40, 42 98, 108 98"/>`;
+    case 'rectangle': return `<rect x="35" y="50" fill="${color}" stroke="#000" stroke-width="1.5" width="80" height="50"/>`;
+    case 'circle': return `<circle fill="${color}" stroke="#000" stroke-width="1.5" cx="75" cy="75" r="32"/>`;
     default: return '';
   }
 }
 
-function getTextSvg(text, color, y, size = 21, font = "Inter") {
+function getShapeSvg(type, color) {
+  switch (type) {
+    case 'square': return `<rect x="27.5" y="27.5" fill="${color}" stroke="#000" stroke-width="2.5" width="95" height="95"/>`;
+    case 'triangle': return `<polygon fill="${color}" stroke="#000" stroke-width="2.5" points="75 20, 20 130, 130 130"/>`;
+    case 'rectangle': return `<rect x="15" y="37.5" fill="${color}" stroke="#000" stroke-width="2.5" width="120" height="75"/>`;
+    case 'circle': return `<circle fill="${color}" stroke="#000" stroke-width="2.5" cx="75" cy="75" r="54"/>`;
+    default: return '';
+  }
+}
+
+function getTextSvg(text, color, y, size = 16, font = "Inter") {
   return `
     <text stroke="black" fill="${color}" stroke-width="0.5" 
       style="font-size:${size}px;" font-weight="900" font-family="${font}, sans-serif" 
@@ -645,22 +769,30 @@ function getTextSvg(text, color, y, size = 21, font = "Inter") {
 }
 
 function generateLaptopQuestion() {
+  const questionTypes = Object.keys(thQuestions);
+  const type1Key = questionTypes[randomNumber(0, questionTypes.length - 1)];
+
   const num1 = thDisplayNums[randomNumber(0, thDisplayNums.length - 1)];
   const target1 = thGridData.find(d => d.displayNum === num1);
-  const a1 = thQuestions['SHAPE'](target1);
+  const a1 = thQuestions[type1Key](target1);
 
   if (thDisplayNums.length === 1) {
-    thQuestionEl.textContent = `SHAPE (${num1})`;
+    thQuestionEl.textContent = `ENTER THE ${type1Key} (${num1})`;
     thCorrectAnswer = `${a1}`.toLowerCase();
   } else {
+    let type2Key = questionTypes[randomNumber(0, questionTypes.length - 1)];
+    while (type2Key === type1Key && questionTypes.length > 1) {
+      type2Key = questionTypes[randomNumber(0, questionTypes.length - 1)];
+    }
+
     let num2 = thDisplayNums[randomNumber(0, thDisplayNums.length - 1)];
     while (num2 === num1) {
       num2 = thDisplayNums[randomNumber(0, thDisplayNums.length - 1)];
     }
     const target2 = thGridData.find(d => d.displayNum === num2);
-    const a2 = thQuestions['SHAPE'](target2);
+    const a2 = thQuestions[type2Key](target2);
 
-    thQuestionEl.textContent = `SHAPE (${num1}) AND SHAPE (${num2})`;
+    thQuestionEl.textContent = `ENTER THE ${type1Key} (${num1}) AND ${type2Key} (${num2})`;
     thCorrectAnswer = `${a1} ${a2}`.toLowerCase();
   }
 }
@@ -676,6 +808,7 @@ function startThTimer() {
   }, 30);
 
   thTimer = setTimeout(() => {
+    if (!thActive) return;
     finishTerminalHack(false, "TIME EXPIRED");
   }, thConfig.time);
 }
@@ -683,6 +816,8 @@ function startThTimer() {
 function finishTerminalHack(success, reason = "") {
   thActive = false;
   clearTimeout(thTimer);
+  thTimerBar.style.transition = 'none';
+  thTimerBar.style.width = '0%';
   showThScreen('thEndScreen');
 
   const title = document.getElementById('thEndTitle');
@@ -705,11 +840,23 @@ function finishTerminalHack(success, reason = "") {
 }
 
 thInputEl.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && thActive) {
+  if (e.key === "Enter" && thActive && !thInputEl.disabled) {
     const val = thInputEl.value.trim().toLowerCase();
+    if (val === "") return;
+
+    thInputEl.disabled = true;
+
     if (val === thCorrectAnswer) {
-      thCurrentRound++;
-      nextTerminalRound();
+      clearTimeout(thTimer);
+      thTimerBar.style.transition = 'none';
+      thQuestionEl.textContent = "✓ BENAR!";
+      thQuestionEl.style.color = "#4caf50";
+
+      setTimeout(() => {
+        thQuestionEl.style.color = "";
+        thCurrentRound++;
+        nextTerminalRound();
+      }, 800);
     } else {
       finishTerminalHack(false, "WRONG SEQUENCE");
     }

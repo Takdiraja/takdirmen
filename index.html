@@ -54,7 +54,18 @@
           <p>3. Saat waktu habis, kotak akan menghilang dan sistem akan menanyakan jumlah warna tertentu.</p>
           <p>4. Ketik angka yang benar untuk warna tersebut lalu tekan Enter sebelum waktu habis.</p>
         </div>
-        
+
+        <div class="th-config-box" style="margin-bottom: 20px;">
+          <label>Variasi:
+            <select id="ccVariation" style="margin-top: 8px; background: #11151a; border: 1px solid #2d3b4d; color: white; padding: 8px; border-radius: 4px; font-family: Arial, sans-serif;">
+              <option value="1">Pola Tetap</option>
+              <option value="2">Acak (5-10)</option>
+            </select>
+          </label>
+          <label>Waktu Hafal (dtk): <input type="number" id="ccMemTime" value="5" min="2" max="15"></label>
+          <label>Waktu Jawab (dtk): <input type="number" id="ccAnsTime" value="5" min="2" max="15"></label>
+        </div>
+
         <div class="np-game-box">
           <div class="np-title" id="ccTitle">INGATLAH</div>
 
@@ -81,6 +92,11 @@
       </section>
 
       <section id="laptopHack" class="game-panel prodigy-ui">
+        <div class="th-config-box" style="margin-bottom: 20px;">
+          <label>Jumlah Kotak: <input type="number" id="thAmount" value="5" min="1" max="8"></label>
+          <label>Waktu (detik): <input type="number" id="thTime" value="7" min="3" max="30"></label>
+        </div>
+
         <!-- START SCREEN -->
         <div id="thStartScreen" class="th-screen active">
           <div class="th-tutorial-box">
@@ -89,11 +105,6 @@
             <p>2. Kotak tersebut kemudian akan berubah menjadi berbagai bentuk dan warna.</p>
             <p>3. Jawab pertanyaan berdasarkan angka yang Anda hafal. Contoh: "SHAPE (3)" berarti Anda harus mengetikkan bentuk (Shape) dari kotak yang awalnya berisi angka 3.</p>
             <p>4. Gunakan spasi untuk memisahkan jawaban jika terdapat dua pertanyaan sekaligus.</p>
-          </div>
-          
-          <div class="th-config-box">
-            <label>Jumlah Kotak: <input type="number" id="thAmount" value="4" min="1" max="6"></label>
-            <label>Waktu (detik): <input type="number" id="thTime" value="10" min="3" max="30"></label>
           </div>
           
           <button class="prodigy-btn" onclick="initHackerman()">MULAI RETAS</button>
@@ -131,7 +142,7 @@
         <div id="thEndScreen" class="th-screen">
           <div id="thEndIcon" class="end-icon"></div>
           <h2 id="thEndTitle">SISTEM MENOLAK JAWABAN ANDA</h2>
-          <button class="prodigy-btn" onclick="showThStartScreen()">Coba lagi</button>
+          <button class="prodigy-btn" onclick="initHackerman()">Coba lagi</button>
           <div class="end-subtext" id="thEndSubtext"></div>
         </div>
       </section>
